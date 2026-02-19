@@ -1,4 +1,5 @@
 /* 
+* RaceGameMode.h - Déclaration de la classe ARaceGameMode, qui gère la logique d'une course dans Unreal Engine.
 *   Ce fichier définit une classe de mode de jeu pour une course dans Unreal Engine.
 *  Il inclut des énumérations pour l'état de la course, une structure pour enregistrer les joueurs qui ont terminé la course et leur temps,
 *  ainsi que des fonctions pour démarrer la course, notifier quand un joueur termine, obtenir l'état de la course, le temps de la course, 
@@ -29,6 +30,9 @@ struct FRaceFinishEntry
 	
 	UPROPERTY(BlueprintReadOnly)
 	TObjectPtr<AActor> PlayerActor = nullptr; // Le joueur qui a terminé la course
+
+	UPROPERTY(BlueprintReadOnly)
+	TObjectPtr<AController> Controller = nullptr; // Le contrôleur du joueur, peut être utilisé pour accéder à des informations supplémentaires sur le joueur ou pour lui envoyer des messages
 
 	UPROPERTY(BlueprintReadOnly)
 	float FinishTime = 0.f; // Le temps de course du joueur, en secondes
@@ -74,8 +78,11 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Race|Camera")
 	TObjectPtr<AActor> FinishedViewCameraActor = nullptr; // Caméra à utiliser pour les joueurs qui ont terminé la course
 
-	double StartTimeSeconds = 0.0; // Le temps auquel la course a commencé, en secondes
+	UPROPERTY(EditAnywhere, Category = "Race|Camera")
+	int32 NumPlayersToFinish = 1; // Le nombre de joueurs qui doivent terminer la course avant de la considérer comme terminée
 
+	double StartTimeSeconds = 0.0; // Le temps auquel la course a commencé, en secondes
+	void FreezeFinishedPlayer(AActor* PlayerActor); // Gèle le joueur qui a terminé la course pour éviter qu'il puisse continuer à jouer après avoir fini
 	bool HasPlayerFinishedAlready(AActor* PlayerActor) const; // Vérifie si un joueur a déjà terminé la course
 
 };

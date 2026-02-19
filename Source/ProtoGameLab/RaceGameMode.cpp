@@ -52,11 +52,6 @@ void ARaceGameMode::NotifyPlayerFinished(AActor* PlayerActor)
 		return; // Ignore si la course n'est pas en cours, si le joueur est invalide ou s'il a déjà terminé
 	}
 
-	if (HasPlayerFinishedAlready(PlayerActor))
-	{
-		return; // Ignore si le joueur a déjà terminé la course
-	}
-
 	FRaceFinishEntry NewEntry; // Crée une nouvelle entrée pour l'ordre d'arrivée
 	NewEntry.PlayerActor = PlayerActor; // Associe le joueur à l'entrée
 	NewEntry.FinishTime = GetRaceTimeSeconds(); // Enregistre le temps de course du joueur
@@ -64,15 +59,6 @@ void ARaceGameMode::NotifyPlayerFinished(AActor* PlayerActor)
 	float FinishTime = GetRaceTimeSeconds(); // Récupère le temps de course du joueur
 
 	UE_LOG(LogTemp, Log, TEXT("Finish: %s at time %.2f seconds"), *PlayerActor->GetName(), FinishTime); // Affiche un message de log avec le nom du joueur et son temps de course
-
-	/*
-	* Si au moins un joueur a terminé, on peut considérer que la course est terminée
-	  (Si on veut attendre que tous les joueurs terminent, il faudrait ajouter une condition pour vérifier le nombre total de joueurs)
-	*/
-	if (FinishOrder.Num() >= 1)
-	{
-		RaceState = ERaceState::Finished; // Met à jour l'état de la course
-	}
 
 	const int32 Position = FinishOrder.Num(); // Position du joueur dans l'ordre d'arrivée
 	const TCHAR* Suffix = Position == 1 ? TEXT("1st") : TEXT("2nd"); // Suffixe pour indiquer la position (1st, 2nd, 3rd, etc.)
@@ -85,7 +71,7 @@ void ARaceGameMode::NotifyPlayerFinished(AActor* PlayerActor)
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, Message);
 	}
 
-	if(APawn* Pawn = Cast<APawn>(PlayerActor))
+	/*if (APawn* Pawn = Cast<APawn>(PlayerActor))
 	{
 		if(APlayerController* PC = Cast<APlayerController>(Pawn->GetController()))
 		{
@@ -94,16 +80,21 @@ void ARaceGameMode::NotifyPlayerFinished(AActor* PlayerActor)
 			// Stoppe la physique
 			if (UPrimitiveComponent* PrimitiveComp = Cast<UPrimitiveComponent>(Pawn->GetRootComponent()))
 			{
-				PC->UnPossess(); // Détache le contrôleur du joueur de son véhicule pour éviter toute interaction après la fin de la course
 				PrimitiveComp->SetPhysicsLinearVelocity(FVector::ZeroVector); // Arrête la simulation physique du véhicule du joueur qui a terminé
 				PrimitiveComp->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector); // Arrête la rotation du véhicule
 			}
 		}
-	}
+	}*/
 
-	if (FinishOrder.Num() >= 1) //Mettre a 2 si on veut attendre que les 2 joueurs terminent la course
+	FreezeFinishedPlayer(PlayerActor); // Gèle le joueur qui a terminé la course pour éviter qu'il puisse continuer à jouer après avoir fini
+
+	/*
+	* Si au moins un joueur a terminé, on peut considérer que la course est terminée
+	  (Si on veut attendre que tous les joueurs terminent, il faudrait ajouter une condition pour vérifier le nombre total de joueurs)
+	*/
+	if (FinishOrder.Num() >= NumPlayersToFinish)
 	{
-		RaceState = ERaceState::Finished; // Met à jour l'état de la course si les 2 joueurs ont terminés
+		RaceState = ERaceState::Finished;
 
 		if (GEngine)
 		{
@@ -121,4 +112,37 @@ AActor* ARaceGameMode::GetWinner() const
 	}
 	return nullptr; // Si personne n'a terminé, retourne nullptr
 }
+
+void ARaceGameMode::FreezeFinishedPlayer(AActor* PlayerActor)
+{
+	if (!PlayerActor) return; // Vérifie que l'acteur est valide
+
+	// Cast l'acteur en APawn pour accéder à son contrôleur
+	APawn* Pawn = Cast<APawn>(PlayerActor);
+	if (!Pawn) return;
+
+	// Cast le contrôleur en APlayerController pour accéder aux fonctions d'input
+	APlayerController* PC = Cast<APlayerController>(Pawn->GetController());
+	if (!PC) return;
+
+	PC->SetViewTargetWithBlend(FinishedViewCameraActor, 0.5f); // Change la vue du joueur pour la caméra de fin
+	PC->UnPossess(); // Désassocie le contrôleur du pawn pour empêcher toute interaction future
+
+	// Stop la physique si active
+	if (UPrimitiveComponent* PrimitiveComp = Cast<UPrimitiveComponent>(Pawn->GetRootComponent()))
+	{
+		if (PrimitiveComp->IsSimulatingPhysics())
+		{
+			PrimitiveComp->SetPhysicsLinearVelocity(FVector::ZeroVector);
+			PrimitiveComp->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+		}
+	}
+
+	// Passer à une caméra de fin
+	if (FinishedViewCameraActor)
+	{
+		PC->SetViewTargetWithBlend(FinishedViewCameraActor, 0.5f);
+	}
+}
+
 

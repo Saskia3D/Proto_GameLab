@@ -28,6 +28,13 @@ AFinishLine::AFinishLine()
 	TriggerBox->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	TriggerBox->SetCollisionResponseToChannel(ECC_Vehicle, ECR_Overlap);
 
+	// Créer le composant de flèche pour indiquer la direction de la ligne d'arrivée
+	ArrowComponent = CreateDefaultSubobject<UArrowComponent>(TEXT("ArrowComponent"));
+	SetRootComponent(ArrowComponent);
+
+	ArrowComponent->SetRelativeLocation(FVector::ZeroVector); // Positionner la flèche au centre de l'acteur
+	ArrowComponent->SetRelativeRotation(FRotator::ZeroRotator); // Orienter la flèche vers l'avant
+	ArrowComponent->ArrowSize = 2.0f; // Agrandir la flèche pour qu'elle soit plus visible
 }
 
 // Called when the game starts or when spawned
@@ -61,10 +68,39 @@ void AFinishLine::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* Ot
 			return; // Ignore si ce n'est pas un véhicule du joueur
 		}
 		
+		APawn* Pawn = Cast<APawn>(OtherActor);
+		if(!Pawn)
+		{
+			return; // Ignore si ce n'est pas un Pawn
+		}
+
+		const FVector Velocity = Pawn->GetVelocity(); // Obtenir la vitesse du véhicule pour vérifier si trop lent
+		const float Speed = Velocity.Size(); // Calculer la vitesse en unités Unreal (cm/s)
+
+		if(Speed < MinSpeed) // Seuil de vitesse
+		{
+			return; // Ignore si le véhicule est trop lent
+		}
+
+		const FVector ForwardVector = ArrowComponent ? ArrowComponent->GetForwardVector() : GetActorForwardVector(); // Obtenir la direction de la ligne d'arrivée
+
+		const float Dot = FVector::DotProduct(Velocity.GetSafeNormal(), ForwardVector); // Calculer le dot product pour vérifier l'orientation du véhicule
+
+		if(Dot < MinForwardDot) // Seuil d'orientation
+		{
+			UE_LOG(LogTemp, Warning, TEXT("FinishLine Overlap ignored, wrong direction: %s"), *GetNameSafe(OtherActor)); // Log pour vérifier que l'overlap est ignoré à cause de l'orientation
+			return; // Ignore si le véhicule n'est pas orienté dans la bonne direction
+		}
+
 		ARaceGameMode* GameMode = Cast<ARaceGameMode>(UGameplayStatics::GetGameMode(GetWorld())); // Obtenir le GameMode pour notifier que le joueur a terminé la course
 
 		if(GameMode)
 		{
+			if(AlreadyTriggered.Contains(OtherActor))
+			{
+				return; // Ignore si ce joueur a déjà déclenché la ligne d'arrivée
+			}
+			AlreadyTriggered.Add(OtherActor); // Ajouter le joueur à l'ensemble des joueurs qui ont déjà déclenché la ligne d'arrivée
 			GameMode->NotifyPlayerFinished(OtherActor); // Notifier le GameMode que le joueur a terminé la course
 			return;
 		}
