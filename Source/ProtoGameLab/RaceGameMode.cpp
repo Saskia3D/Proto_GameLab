@@ -94,9 +94,7 @@ void ARaceGameMode::NotifyPlayerFinished(AActor* PlayerActor)
 			// Stoppe la physique
 			if (UPrimitiveComponent* PrimitiveComp = Cast<UPrimitiveComponent>(Pawn->GetRootComponent()))
 			{
-				PC->bAutoManageActiveCameraTarget = false; // Désactive la gestion automatique de la caméra pour éviter que la caméra ne suive le joueur après la fin de la course
-				PC->SetViewTargetWithBlend(FinishedViewCameraActor); // Change la caméra du joueur pour une vue de fin de course
-				//PC->UnPossess(); // Détache le contrôleur du joueur de son véhicule pour éviter toute interaction après la fin de la course
+				PC->UnPossess(); // Détache le contrôleur du joueur de son véhicule pour éviter toute interaction après la fin de la course
 				PrimitiveComp->SetPhysicsLinearVelocity(FVector::ZeroVector); // Arrête la simulation physique du véhicule du joueur qui a terminé
 				PrimitiveComp->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector); // Arrête la rotation du véhicule
 			}
