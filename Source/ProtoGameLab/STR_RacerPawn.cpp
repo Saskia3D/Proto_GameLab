@@ -101,6 +101,11 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 	FHitResult Hit;
 	CapsuleComp->MoveComponent(Delta, GetActorRotation(), true, &Hit);
 
+	if (DeltaTime > 0.f)
+	{
+		CapsuleComp->ComponentVelocity = Delta / DeltaTime;
+	}
+
 	// --- 4. DEBUG OVERLAPS ---
 	TArray<AActor*> Overlapping;
 	CapsuleComp->GetOverlappingActors(Overlapping);
@@ -184,7 +189,6 @@ void ASTR_RacerPawn::PossessedBy(AController* NewController)
 
 void ASTR_RacerPawn::UnPossessed()
 {
-	Super::UnPossessed();
 	APlayerController* PC = Cast<APlayerController>(Controller);
 	if (PC)
 	{

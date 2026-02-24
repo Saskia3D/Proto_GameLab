@@ -42,7 +42,7 @@ public:
 	float MinForwardDot = 0.2f; // Le seuil de dot product pour vérifier si le véhicule est orienté dans la bonne direction
 
 	UPROPERTY(EditAnywhere, Category = "Finish|Direction")
-	float MinSpeed = 50.0f; // La vitesse minimale pour que le véhicule puisse déclencher la ligne d'arrivée
+	float MinSpeed = 10.0f; // La vitesse minimale pour que le véhicule puisse déclencher la ligne d'arrivée
 
 	UFUNCTION()
 	void OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult); // Fonction pour gérer les overlaps

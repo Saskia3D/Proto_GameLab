@@ -2,6 +2,7 @@
 
 
 #include "FinishLine.h"
+#include "STR_RacerPawn.h"
 #include "Components/BoxComponent.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
@@ -30,11 +31,10 @@ AFinishLine::AFinishLine()
 
 	// Créer le composant de flèche pour indiquer la direction de la ligne d'arrivée
 	ArrowComponent = CreateDefaultSubobject<UArrowComponent>(TEXT("ArrowComponent"));
-	SetRootComponent(ArrowComponent);
-
-	ArrowComponent->SetRelativeLocation(FVector::ZeroVector); // Positionner la flèche au centre de l'acteur
-	ArrowComponent->SetRelativeRotation(FRotator::ZeroRotator); // Orienter la flèche vers l'avant
-	ArrowComponent->ArrowSize = 2.0f; // Agrandir la flèche pour qu'elle soit plus visible
+	ArrowComponent->SetupAttachment(RootComponent);
+	ArrowComponent->SetRelativeLocation(FVector::ZeroVector);
+	ArrowComponent->SetRelativeRotation(FRotator::ZeroRotator);
+	ArrowComponent->ArrowSize = 2.0f;
 }
 
 // Called when the game starts or when spawned
@@ -57,6 +57,85 @@ bool AFinishLine::IsPlayerVehicle(AActor* Actor) const
 	return false;
 }
 
+void AFinishLine::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
+	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	UE_LOG(LogTemp, Warning, TEXT("[FINISH] Overlap with: %s | OtherComp=%s"),
+		*GetNameSafe(OtherActor), *GetNameSafe(OtherComp));
+
+	if (!OtherActor || OtherActor == this || !OtherComp)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[FINISH] RETURN: invalid actor/comp"));
+		return;
+	}
+
+	APawn* Pawn = Cast<APawn>(OtherActor);
+	if (!Pawn)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[FINISH] RETURN: not a Pawn"));
+		return;
+	}
+
+	AController* C = Pawn->GetController();
+	UE_LOG(LogTemp, Warning, TEXT("[FINISH] Pawn=%s Controller=%s IsPlayerControlled=%d"),
+		*GetNameSafe(Pawn), *GetNameSafe(C), Pawn->IsPlayerControlled());
+
+	// IMPORTANT: on log la velocity avant tout
+	const FVector V = Pawn->GetVelocity();
+	float Speed = Pawn->GetVelocity().Size();
+	FVector MoveDir = Pawn->GetVelocity().GetSafeNormal();
+
+	if (ASTR_RacerPawn* STR = Cast<ASTR_RacerPawn>(Pawn))
+	{
+		Speed = STR->GetCurrentSpeed();          // vitesse interne (fiable)
+		MoveDir = STR->GetActorForwardVector();  // il avance dans son forward
+	}
+
+	if (Speed < MinSpeed)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("FinishLine ignored: too slow (Speed=%.2f)"), Speed);
+		return;
+	}
+
+	const FVector ForwardVector = ArrowComponent ? ArrowComponent->GetForwardVector() : GetActorForwardVector();
+	const float Dot = FVector::DotProduct(MoveDir, ForwardVector);
+	//const FVector ForwardVector = ArrowComponent ? ArrowComponent->GetForwardVector() : GetActorForwardVector();
+	//const float Dot = FVector::DotProduct(V.GetSafeNormal(), ForwardVector);
+	UE_LOG(LogTemp, Warning, TEXT("[FINISH] Dot=%.3f (MinForwardDot=%.3f)"), Dot, MinForwardDot);
+
+	if (Dot < MinForwardDot)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("FinishLine ignored: wrong direction (Dot=%.3f)"), Dot);
+		return;
+	}
+
+	/*if (Dot < MinForwardDot)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[FINISH] RETURN: wrong direction"));
+		return;
+	}*/
+
+	if (AlreadyTriggered.Contains(OtherActor))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[FINISH] RETURN: already triggered"));
+		return;
+	}
+
+	ARaceGameMode* GameMode = Cast<ARaceGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
+	UE_LOG(LogTemp, Warning, TEXT("[FINISH] GameMode=%s"), *GetNameSafe(GameMode));
+
+	if (!GameMode)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[FINISH] RETURN: no GameMode"));
+		return;
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("[FINISH] SUCCESS -> NotifyPlayerFinished(%s)"), *GetNameSafe(OtherActor));
+	AlreadyTriggered.Add(OtherActor);
+	GameMode->NotifyPlayerFinished(OtherActor);
+}
+
+/*
 void AFinishLine::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	UE_LOG(LogTemp, Warning, TEXT("FinishLine Overlap with: %s"), *GetNameSafe(OtherActor)); // Log pour vérifier que la fonction d'overlap est appelée et quel acteur a déclenché l'overlap
@@ -86,6 +165,8 @@ void AFinishLine::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* Ot
 
 		const float Dot = FVector::DotProduct(Velocity.GetSafeNormal(), ForwardVector); // Calculer le dot product pour vérifier l'orientation du véhicule
 
+		UE_LOG(LogTemp, Warning, TEXT("Speed=%.2f Dot=%.2f"), Speed, Dot); // Log pour vérifier les valeurs de vitesse et d'orientation du véhicule lors de l'overlap
+
 		if(Dot < MinForwardDot) // Seuil d'orientation
 		{
 			UE_LOG(LogTemp, Warning, TEXT("FinishLine Overlap ignored, wrong direction: %s"), *GetNameSafe(OtherActor)); // Log pour vérifier que l'overlap est ignoré à cause de l'orientation
@@ -105,7 +186,7 @@ void AFinishLine::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* Ot
 			return;
 		}
 	}
-}
+}*/
 
 // Called every frame
 void AFinishLine::Tick(float DeltaTime)

@@ -73,6 +73,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float BrakingDeceleration = 600.0f;
 
+	UFUNCTION(BlueprintCallable, Category="Mouvement")
+	float GetCurrentSpeed() const { return CurrentSpeed; } // Getter pour la vitesse actuelle, utile pour les Blueprints
+
 private:
 	float CurrentSpeed;
 	FVector2D MovementInput;
