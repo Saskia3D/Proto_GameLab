@@ -1,6 +1,5 @@
 // TrackManager.cpp
 
-
 #include "TrackManager.h"
 
 // Sets default values

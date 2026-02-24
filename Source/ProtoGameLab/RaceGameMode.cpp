@@ -16,14 +16,15 @@ ARaceGameMode::ARaceGameMode() // Constructeur par défaut, peut être utilisé pou
 void ARaceGameMode::BeginPlay()
 {
 	Super::BeginPlay();
-	StartRace(); // Démarre la course dès que le jeu commence
-	UE_LOG(LogTemp, Warning, TEXT("RaceGameMode BeginPlay (ACTIVE)")); // Log pour vérifier que le BeginPlay est appelé et que la course démarre correctement
 
 	// Si une classe de TrackManager est assignée dans l'éditeur, crée une instance de TrackManager pour gérer les checkpoints et la progression de la course
 	if (TrackManagerClass)
 	{
 		TrackManager = GetWorld()->SpawnActor<ATrackManager>(TrackManagerClass);
 	}
+
+	StartRace(); // Démarre la course dès que le jeu commence
+	UE_LOG(LogTemp, Warning, TEXT("RaceGameMode BeginPlay (ACTIVE)")); // Log pour vérifier que le BeginPlay est appelé et que la course démarre correctement
 }
 
 void ARaceGameMode::StartRace()
@@ -245,7 +246,7 @@ void ARaceGameMode::UpdatePositions()
 	if (GEngine)
 	{
 		const TCHAR* Lead = (Result >= 0) ? TEXT("P1 est devant!") : TEXT("P2 est devant!");
-		GEngine->AddOnScreenDebugMessage(777, 0.2f, FColor::Cyan, Lead);
+		GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Cyan, Lead);
 	}
 }
 

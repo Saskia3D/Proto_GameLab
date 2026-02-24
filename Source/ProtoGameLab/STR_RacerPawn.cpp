@@ -1,6 +1,5 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-
 #include "STR_RacerPawn.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -17,11 +16,25 @@ ASTR_RacerPawn::ASTR_RacerPawn()
 	CapsuleComp = CreateDefaultSubobject<UCapsuleComponent>(TEXT("CapsuleComp"));
 	RootComponent = CapsuleComp;
 	CapsuleComp->SetCapsuleSize(40.f, 40.f);
+	CapsuleComp->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	CapsuleComp->SetGenerateOverlapEvents(true);
+	CapsuleComp->SetCollisionObjectType(ECC_Pawn);
+	CapsuleComp->SetCollisionResponseToAllChannels(ECR_Ignore);
+	CapsuleComp->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
+	CapsuleComp->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	CapsuleComp->SetCollisionResponseToChannel(ECC_Vehicle, ECR_Overlap);
+	CapsuleComp->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
+
+	//CapsuleComp->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	//CapsuleComp->SetGenerateOverlapEvents(true);
+	//CapsuleComp->SetCollisionResponseToAllChannels(ECR_Overlap);
 
 	// 2. Setup du Sprite (L'image du vaisseau) <--- C'EST CE QUI MANQUAIT
 	SpriteComp = CreateDefaultSubobject<UPaperSpriteComponent>(TEXT("SpriteComp"));
 	SpriteComp->SetupAttachment(RootComponent);
 	SpriteComp->SetRelativeRotation(FRotator(0.0f, -90.0f, 90.0f)); // À plat
+	SpriteComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	SpriteComp->SetGenerateOverlapEvents(false);
 
 	// 3. Setup de la Caméra
 	SpringArmComp = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArmComp"));
@@ -42,7 +55,7 @@ void ASTR_RacerPawn::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
+	/*if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
 	{
 		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
 		{
@@ -52,7 +65,8 @@ void ASTR_RacerPawn::BeginPlay()
 				Subsystem->AddMappingContext(DefaultMappingContext, 0);
 			}
 		}
-	}
+	}*/
+
 }
 
 void ASTR_RacerPawn::Tick(float DeltaTime)
@@ -82,8 +96,25 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 	}
 
 	// --- 3. MOUVEMENT ---
-	FVector NewLocation = GetActorLocation() + (GetActorForwardVector() * CurrentSpeed * DeltaTime);
-	SetActorLocation(NewLocation, true);
+	const FVector Delta = GetActorForwardVector() * CurrentSpeed * DeltaTime;
+
+	FHitResult Hit;
+	CapsuleComp->MoveComponent(Delta, GetActorRotation(), true, &Hit);
+
+	// --- 4. DEBUG OVERLAPS ---
+	TArray<AActor*> Overlapping;
+	CapsuleComp->GetOverlappingActors(Overlapping);
+
+	int32 CountCP = 0;
+	for (AActor* A : Overlapping)
+	{
+		if (A && A->GetName().Contains(TEXT("Checkpoint")))
+		{
+			CountCP++;
+		}
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("Overlaps=%d  CheckpointOverlaps=%d"), Overlapping.Num(), CountCP);
 }
 
 void ASTR_RacerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -131,4 +162,43 @@ void ASTR_RacerPawn::StopBrake(const FInputActionValue& Value)
 void ASTR_RacerPawn::UseItem(const FInputActionValue& Value)
 {
 	UE_LOG(LogTemp, Warning, TEXT("ITEM UTILISÉ !"));
+}
+
+void ASTR_RacerPawn::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+
+	APlayerController* PC = Cast<APlayerController>(NewController);
+	if (!PC) return;
+
+	ULocalPlayer* LP = PC->GetLocalPlayer();
+	if (!LP) return;
+
+	UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LP);
+
+	if (Subsystem && DefaultMappingContext)
+	{
+		Subsystem->AddMappingContext(DefaultMappingContext, 0);
+	}
+}
+
+void ASTR_RacerPawn::UnPossessed()
+{
+	Super::UnPossessed();
+	APlayerController* PC = Cast<APlayerController>(Controller);
+	if (PC)
+	{
+		if (ULocalPlayer* LP = PC->GetLocalPlayer())
+		{
+			if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LP))
+			{
+				if (DefaultMappingContext)
+				{
+					Subsystem->RemoveMappingContext(DefaultMappingContext);
+				}
+			}
+		}
+	}
+
+	Super::UnPossessed();
 }

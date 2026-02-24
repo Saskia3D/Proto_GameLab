@@ -16,20 +16,42 @@ ACheckpoint::ACheckpoint()
 	// Configurer les paramètres de collision du trigger pour détecter les overlaps
 	Trigger->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	Trigger->SetGenerateOverlapEvents(true);
+	Trigger->SetCollisionObjectType(ECC_WorldDynamic);
 	Trigger->SetCollisionResponseToAllChannels(ECR_Ignore);
 	Trigger->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	Trigger->SetCollisionResponseToChannel(ECC_Vehicle, ECR_Overlap);
+	Trigger->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
+	//Trigger->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	//Trigger->SetGenerateOverlapEvents(true);
+	//Trigger->SetCollisionResponseToAllChannels(ECR_Overlap);
 }
 
 void ACheckpoint::BeginPlay()
 {
 	Super::BeginPlay();
+	UE_LOG(LogTemp, Warning, TEXT("Trigger settings: Enabled=%d GenOverlap=%d ObjType=%d"),
+		(int)Trigger->GetCollisionEnabled(),
+		Trigger->GetGenerateOverlapEvents(),
+		(int)Trigger->GetCollisionObjectType());
+
+	UE_LOG(LogTemp, Warning, TEXT("Checkpoint BeginPlay: %s"), *GetName());
+
+	// Suppose que ton box s'appelle TriggerBox (ou pareil)
+	check(Trigger);
 	Trigger->OnComponentBeginOverlap.AddDynamic(this, &ACheckpoint::OnBeginOverlap); // Lier la fonction OnBeginOverlap à l'événement de début de chevauchement du composant Trigger
+
+	UE_LOG(LogTemp, Warning, TEXT("Checkpoint overlap bound on %s"), *GetNameSafe(Trigger));
 }
 
 void ACheckpoint::OnBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
 	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& Sweep)
 {
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Red, TEXT("CHECKPOINT OVERLAP!"));
+	}
+	UE_LOG(LogTemp, Error, TEXT("CHECKPOINT OVERLAP (LOG)"));
+
 	UE_LOG(LogTemp, Warning, TEXT("Checkpoint overlap: OtherActor=%s"), *GetNameSafe(OtherActor));
 
 	// Vérifier si l'acteur qui chevauche est un Pawn (un véhicule dans ce cas)

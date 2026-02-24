@@ -16,7 +16,7 @@ class UInputAction;
 class UPaperSpriteComponent; // Nécessite le module Paper2D
 
 UCLASS()
-class SPACETIMERACER_API ASTR_RacerPawn : public APawn
+class PROTOGAMELAB_API ASTR_RacerPawn : public APawn
 {
 	GENERATED_BODY()
 
@@ -27,6 +27,8 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+	virtual void PossessedBy(AController* NewController) override; // Surcharge de la fonction PossessedBy pour ajouter des fonctionnalités lors de la possession du Pawn
+	virtual void UnPossessed() override; // Surcharge de la fonction UnPossessed pour ajouter des fonctionnalités lors de la dépossession du Pawn
 
 public:
 	// Called every frame
