@@ -65,13 +65,13 @@ public:
 
 	// --- PARAMÈTRES ---
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float MaxSpeed = 600.0f;
+	float MaxSpeed = 1200.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float AccelerationRate = 300.0f;
+	float AccelerationRate = 400.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float BrakingDeceleration = 600.0f;
+	float BrakingDeceleration = 700.0f;
 
 	UFUNCTION(BlueprintCallable, Category="Mouvement")
 	float GetCurrentSpeed() const { return CurrentSpeed; } // Getter pour la vitesse actuelle, utile pour les Blueprints
