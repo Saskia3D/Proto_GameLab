@@ -102,9 +102,11 @@ void ARaceGameMode::NotifyPlayerFinished(AActor* PlayerActor)
 	* Si au moins un joueur a terminé, on peut considérer que la course est terminée
 	  (Si on veut attendre que tous les joueurs terminent, il faudrait ajouter une condition pour vérifier le nombre total de joueurs)
 	*/
-	if (FinishOrder.Num() >= NumPlayersToFinish)
+	if (FinishOrder.Num() >= NumPlayersToFinish && !bHasTriggeredEndMenu)
 	{
+		bHasTriggeredEndMenu = true; // Empêche de déclencher le menu de fin de course plusieurs fois
 		RaceState = ERaceState::Finished;
+		UGameplayStatics::OpenLevel(GetWorld(), FName("RaceEndMenu"));
 
 		if (GEngine)
 		{
