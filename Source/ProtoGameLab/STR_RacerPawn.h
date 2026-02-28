@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// STR_RacerPawn.h
 
 #pragma once
 
@@ -13,7 +13,7 @@ class USpringArmComponent;
 class UCameraComponent;
 class UInputMappingContext;
 class UInputAction;
-class UPaperSpriteComponent; // Nécessite le module Paper2D
+class UPaperSpriteComponent;
 
 UCLASS()
 class PROTOGAMELAB_API ASTR_RacerPawn : public APawn

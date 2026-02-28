@@ -1,10 +1,10 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// STR_RacerPawn.cpp - Implémentation de la classe ASTR_RacerPawn, qui représente le véhicule contrôlé par le joueur dans le jeu
 
 #include "STR_RacerPawn.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
-#include "PaperSpriteComponent.h" // <--- IMPORTANT : On remet ça pour l'image !
+#include "PaperSpriteComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 
@@ -29,7 +29,7 @@ ASTR_RacerPawn::ASTR_RacerPawn()
 	//CapsuleComp->SetGenerateOverlapEvents(true);
 	//CapsuleComp->SetCollisionResponseToAllChannels(ECR_Overlap);
 
-	// 2. Setup du Sprite (L'image du vaisseau) <--- C'EST CE QUI MANQUAIT
+	// 2. Setup du Sprite
 	SpriteComp = CreateDefaultSubobject<UPaperSpriteComponent>(TEXT("SpriteComp"));
 	SpriteComp->SetupAttachment(RootComponent);
 	SpriteComp->SetRelativeRotation(FRotator(0.0f, -90.0f, 90.0f)); // À plat
