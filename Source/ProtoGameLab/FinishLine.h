@@ -12,6 +12,16 @@
 
 class UBoxComponent;
 
+USTRUCT()
+struct FLapData
+{
+	GENERATED_BODY()
+
+	int32 LapNumber = 0; // Le numéro du tour
+	float LastCrossTime = -99999999.f; // Le temps auquel le joueur a franchi la ligne d'arrivée pour ce tour, initialisé à une valeur très basse pour indiquer que le joueur n'a pas encore franchi la ligne d'arrivée pour ce tour
+	bool bArmed = true;
+};
+
 UCLASS()
 class PROTOGAMELAB_API AFinishLine : public AActor
 {
@@ -20,6 +30,9 @@ class PROTOGAMELAB_API AFinishLine : public AActor
 public:	
 	// Sets default values for this actor's properties
 	AFinishLine();
+
+	UFUNCTION(BlueprintCallable, Category = "Finish|Lap")
+	void ArmForController(AController* Controller); // Arme la ligne d'arrivée pour un contrôleur spécifique, lui permettant de déclencher la ligne d'arrivée pour le prochain tour
 
 protected:
 	// Called when the game starts or when spawned
@@ -43,6 +56,15 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Finish|Direction")
 	float MinSpeed = 10.0f; // La vitesse minimale pour que le véhicule puisse déclencher la ligne d'arrivée
+
+	UPROPERTY(EditAnywhere, Category = "Finish|Lap")
+	int32 TotalLaps = 3; // Le nombre total de tours dans la course
+
+	UPROPERTY(EditAnywhere, Category = "Finish|Lap")
+	float LapCooldownSeconds = 0.75f; // Le temps de cooldown entre les tours pour éviter les déclenchements multiples
+
+	UPROPERTY()
+	TMap<TObjectPtr<AController>, FLapData> LapByController; // Un mapping pour suivre les données de tour de chaque contrôleur
 
 	UFUNCTION()
 	void OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult); // Fonction pour gérer les overlaps

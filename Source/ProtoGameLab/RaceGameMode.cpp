@@ -81,21 +81,6 @@ void ARaceGameMode::NotifyPlayerFinished(AActor* PlayerActor)
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, Message);
 	}
 
-	/*if (APawn* Pawn = Cast<APawn>(PlayerActor))
-	{
-		if(APlayerController* PC = Cast<APlayerController>(Pawn->GetController()))
-		{
-			Pawn->DisableInput(PC); // Désactive les entrées du joueur qui a terminé la course pour éviter qu'il puisse continuer à jouer après avoir fini
-
-			// Stoppe la physique
-			if (UPrimitiveComponent* PrimitiveComp = Cast<UPrimitiveComponent>(Pawn->GetRootComponent()))
-			{
-				PrimitiveComp->SetPhysicsLinearVelocity(FVector::ZeroVector); // Arrête la simulation physique du véhicule du joueur qui a terminé
-				PrimitiveComp->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector); // Arrête la rotation du véhicule
-			}
-		}
-	}*/
-
 	FreezeFinishedPlayer(PlayerActor); // Gèle le joueur qui a terminé la course pour éviter qu'il puisse continuer à jouer après avoir fini
 
 	/*
