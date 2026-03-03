@@ -75,7 +75,8 @@ public:
 	float BrakingDeceleration = 700.0f;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Buff")
-	UBuffComponent* FoundBuffComp = FindComponentByClass<UBuffComponent>();
+	//UBuffComponent* FoundBuffComp = FindComponentByClass<UBuffComponent>();
+	UBuffComponent* BuffComponent;
 
 	UFUNCTION(BlueprintCallable, Category="Mouvement")
 	float GetCurrentSpeed() const { return CurrentSpeed; } // Getter pour la vitesse actuelle, utile pour les Blueprints

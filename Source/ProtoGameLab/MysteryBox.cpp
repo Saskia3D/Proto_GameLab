@@ -3,7 +3,7 @@
 #include "MysteryBox.h"
 #include "Components/BoxComponent.h"
 #include "BuffBase.h"
-#include "MyVehiclePawn.h"
+//#include "MyVehiclePawn.h"
 #include "STR_RacerPawn.h"
 #include "BuffComponent.h"
 
@@ -56,7 +56,15 @@ void AMysteryBox::OnOverlapBegin(UPrimitiveComponent* OverlappedComp,
         Destroy();
     }*/
 
+
     ASTR_RacerPawn* RacerPawn = Cast<ASTR_RacerPawn>(OtherActor);
+
+    UE_LOG(LogTemp, Warning, TEXT("Overlap with: %s"), *GetNameSafe(OtherActor));
+
+    if (!RacerPawn)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Cast to STR_RacerPawn FAILED"));
+    }
 
     if (RacerPawn && PossibleBuffs.Num() > 0)
     {

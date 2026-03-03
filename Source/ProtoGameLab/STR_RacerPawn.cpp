@@ -48,7 +48,8 @@ ASTR_RacerPawn::ASTR_RacerPawn()
 	CameraComp = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraComp"));
 	CameraComp->SetupAttachment(SpringArmComp);
 
-	FoundBuffComp = CreateDefaultSubobject<UBuffComponent>(TEXT("BuffComp"));
+	//FoundBuffComp = CreateDefaultSubobject<UBuffComponent>(TEXT("BuffComp"));
+	BuffComponent = CreateDefaultSubobject<UBuffComponent>(TEXT("BuffComponent"));
 
 	// Valeurs par défaut
 	CurrentSpeed = 0.0f;
@@ -172,7 +173,7 @@ void ASTR_RacerPawn::UseItem(const FInputActionValue& Value)
 {
 	UE_LOG(LogTemp, Warning, TEXT("[ITEM] UseItem called on %s"), *GetName());
 
-	UBuffComponent* BuffComp = FindComponentByClass<UBuffComponent>();
+	/*UBuffComponent* BuffComp = FindComponentByClass<UBuffComponent>();
 
 	if (BuffComp)
 	{
@@ -185,6 +186,11 @@ void ASTR_RacerPawn::UseItem(const FInputActionValue& Value)
 	else
 	{
 		UE_LOG(LogTemp, Error, TEXT("[ITEM] NO BuffComponent on this pawn!"));
+	}*/
+
+	if (BuffComponent)
+	{
+		BuffComponent->UseBuff();
 	}
 }
 

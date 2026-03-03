@@ -3,7 +3,7 @@
 #include "BuffComponent.h"
 #include "BuffBase.h"
 #include "GameFramework/Pawn.h"
-#include "MyVehiclePawn.h"
+//#include "MyVehiclePawn.h"
 
 // Sets default values for this component's properties
 UBuffComponent::UBuffComponent()
