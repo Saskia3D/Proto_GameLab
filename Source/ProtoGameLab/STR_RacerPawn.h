@@ -14,6 +14,7 @@ class UCameraComponent;
 class UInputMappingContext;
 class UInputAction;
 class UPaperSpriteComponent;
+class UBuffComponent;
 
 UCLASS()
 class PROTOGAMELAB_API ASTR_RacerPawn : public APawn
@@ -72,6 +73,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float BrakingDeceleration = 700.0f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Buff")
+	UBuffComponent* FoundBuffComp = FindComponentByClass<UBuffComponent>();
 
 	UFUNCTION(BlueprintCallable, Category="Mouvement")
 	float GetCurrentSpeed() const { return CurrentSpeed; } // Getter pour la vitesse actuelle, utile pour les Blueprints

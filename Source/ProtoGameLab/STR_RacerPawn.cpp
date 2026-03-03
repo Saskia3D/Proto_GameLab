@@ -3,9 +3,11 @@
 #include "STR_RacerPawn.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "GameFramework/Pawn.h"
 #include "Camera/CameraComponent.h"
 #include "PaperSpriteComponent.h"
 #include "EnhancedInputComponent.h"
+#include "BuffComponent.h"
 #include "EnhancedInputSubsystems.h"
 
 ASTR_RacerPawn::ASTR_RacerPawn()
@@ -45,6 +47,8 @@ ASTR_RacerPawn::ASTR_RacerPawn()
 
 	CameraComp = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraComp"));
 	CameraComp->SetupAttachment(SpringArmComp);
+
+	FoundBuffComp = CreateDefaultSubobject<UBuffComponent>(TEXT("BuffComp"));
 
 	// Valeurs par défaut
 	CurrentSpeed = 0.0f;
@@ -166,7 +170,22 @@ void ASTR_RacerPawn::StopBrake(const FInputActionValue& Value)
 
 void ASTR_RacerPawn::UseItem(const FInputActionValue& Value)
 {
-	UE_LOG(LogTemp, Warning, TEXT("ITEM UTILISÉ !"));
+	UE_LOG(LogTemp, Warning, TEXT("[ITEM] UseItem called on %s"), *GetName());
+
+	UBuffComponent* BuffComp = FindComponentByClass<UBuffComponent>();
+
+	if (BuffComp)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[ITEM] BuffComp found. HasBuff=%d  CurrentBuffPtr=%p"),
+			BuffComp->CurrentBuff != nullptr,
+			BuffComp->CurrentBuff);
+
+		BuffComp->UseBuff();
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("[ITEM] NO BuffComponent on this pawn!"));
+	}
 }
 
 void ASTR_RacerPawn::PossessedBy(AController* NewController)

@@ -15,11 +15,17 @@ class PROTOGAMELAB_API UTurboBuff : public UBuffBase
 	GENERATED_BODY()
 	
 public:
-	virtual void Activate(AMyVehiclePawn* Player) override;
+	virtual void Activate(APawn* Player) override;
 
 protected:
 	virtual void OnBuffExpired() override;
 
 private:
 	float OriginalTorqueMultiplier;
+
+	UPROPERTY(EditDefaultsOnly, Category="Turbo")
+	float TurboMultiplier = 1.5f;
+
+	float OriginalMaxSpeed = 0.f;
+	TWeakObjectPtr<class ASTR_RacerPawn> CachedRacer;
 };

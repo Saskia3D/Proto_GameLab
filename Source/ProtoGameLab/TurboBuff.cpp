@@ -3,24 +3,34 @@
 
 #include "TurboBuff.h"
 #include "MyVehiclePawn.h"
+#include "STR_RacerPawn.h"
 #include "ChaosWheeledVehicleMovementComponent.h"
 
-void UTurboBuff::Activate(AMyVehiclePawn* Player)
+void UTurboBuff::Activate(APawn* Player)
 {
     if (!Player) return;
 
     CachedPlayer = Player;
+    
+    ASTR_RacerPawn* Racer = Cast<ASTR_RacerPawn>(Player);
+    if (!Racer) return;
 
+    /*
     UChaosWheeledVehicleMovementComponent* Movement =
         Cast<UChaosWheeledVehicleMovementComponent>(Player->GetVehicleMovementComponent());
 
-    if (!Movement) return;
+    if (!Movement) return;*/
 
+    CachedRacer = Racer;
+    OriginalMaxSpeed = Racer->MaxSpeed;
+    Racer->MaxSpeed = OriginalMaxSpeed * TurboMultiplier;
+
+    /*
     // Sauvegarder valeur actuelle
     OriginalTorqueMultiplier = Movement->EngineSetup.TorqueCurve.GetRichCurveConst()->GetLastKey().Value;
 
     // Multiplier torque (exemple simple)
-    Movement->EngineSetup.MaxTorque *= 1.5f;
+    Movement->EngineSetup.MaxTorque *= 1.5f;*/
 
     UE_LOG(LogTemp, Warning, TEXT("Turbo Activated!"));
 
@@ -29,6 +39,7 @@ void UTurboBuff::Activate(AMyVehiclePawn* Player)
 
 void UTurboBuff::OnBuffExpired()
 {
+    /*
     if (!CachedPlayer) return;
 
     UChaosWheeledVehicleMovementComponent* Movement =
@@ -37,6 +48,11 @@ void UTurboBuff::OnBuffExpired()
     if (Movement)
     {
         Movement->EngineSetup.MaxTorque /= 1.5f;
+    }*/
+
+    if (ASTR_RacerPawn* Racer = CachedRacer.Get())
+    {
+        Racer->MaxSpeed = OriginalMaxSpeed;
     }
 
     UE_LOG(LogTemp, Warning, TEXT("Turbo Expired!"));

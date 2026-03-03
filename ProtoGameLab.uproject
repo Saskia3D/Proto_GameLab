@@ -1,35 +1,31 @@
 {
-	"FileVersion": 3,
-	"EngineAssociation": "5.7",
-	"Category": "",
-	"Description": "",
-	"Modules": [
-		{
-			"Name": "ProtoGameLab",
-			"Type": "Runtime",
-			"LoadingPhase": "Default",
-			"AdditionalDependencies": [
-				"Engine",
-				"CoreUObject",
-				"ChaosVehicles"
-			]
-		}
-	],
-	"Plugins": [
-		{
-			"Name": "RawInput",
-			"Enabled": true
-		},
-		{
-			"Name": "ModelingToolsEditorMode",
-			"Enabled": true,
-			"TargetAllowList": [
-				"Editor"
-			]
-		},
-		{
-			"Name": "ChaosVehiclesPlugin",
-			"Enabled": true
-		}
-	]
+  "FileVersion": 3,
+  "EngineAssociation": "5.7",
+  "Category": "",
+  "Description": "",
+  "Modules": [
+    {
+      "Name": "ProtoGameLab",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ],
+  "Plugins": [
+    {
+      "Name": "RawInput",
+      "Enabled": true
+    },
+    {
+      "Name": "ModelingToolsEditorMode",
+      "Enabled": true
+    },
+    {
+      "Name": "ChaosVehiclesPlugin",
+      "Enabled": true
+    }
+  ],
+  "TargetPlatforms": [],
+  "AdditionalRootDirectories": [],
+  "AdditionalPluginDirectories": [],
+  "EpicSampleNameHash": ""
 }

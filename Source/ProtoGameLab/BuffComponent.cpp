@@ -1,8 +1,8 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-
 #include "BuffComponent.h"
 #include "BuffBase.h"
+#include "GameFramework/Pawn.h"
 #include "MyVehiclePawn.h"
 
 // Sets default values for this component's properties
@@ -26,13 +26,13 @@ void UBuffComponent::AddBuff(TSubclassOf<UBuffBase> BuffClass)
 
 void UBuffComponent::UseBuff()
 {
-    if (CurrentBuff)
+    if (!CurrentBuff) return;
+
+    APawn* OwnerPawn = Cast<APawn>(GetOwner());
+    if (OwnerPawn)
     {
-        AMyVehiclePawn* OwnerVehicle = Cast<AMyVehiclePawn>(GetOwner());
-        if (OwnerVehicle)
-        {
-            CurrentBuff->Activate(OwnerVehicle);
-        }
-        CurrentBuff = nullptr;
+        CurrentBuff->Activate(OwnerPawn);
     }
+
+    CurrentBuff = nullptr;
 }

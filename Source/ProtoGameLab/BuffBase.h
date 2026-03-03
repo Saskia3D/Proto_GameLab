@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+//BuffBase.h
 
 #pragma once
 
@@ -6,24 +6,22 @@
 #include "UObject/Object.h"
 #include "BuffBase.generated.h"
 
+class APawn;
 
-class AMyVehiclePawn;
-/**
- * 
- */
 UCLASS(Blueprintable, Abstract)
 class PROTOGAMELAB_API UBuffBase : public UObject
 {
 	GENERATED_BODY()
-	
+
 public:
-	virtual void Activate(class AMyVehiclePawn* Player);
+	virtual void Activate(APawn* Player);
 
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	float Duration = 3.0f;
 
-	AMyVehiclePawn* CachedPlayer;
+	UPROPERTY()
+	TObjectPtr<APawn> CachedPlayer = nullptr;
 
 	FTimerHandle DurationHandle;
 

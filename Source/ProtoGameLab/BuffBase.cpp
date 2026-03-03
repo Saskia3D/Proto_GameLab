@@ -1,32 +1,32 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
+// BaseBuff.cpp
 
 #include "BuffBase.h"
-#include "MyVehiclePawn.h"
-#include "TimerManager.h"
+#include "GameFramework/Pawn.h"
 #include "Engine/World.h"
+#include "TimerManager.h"
 
-void UBuffBase::Activate(AMyVehiclePawn* Player)
+void UBuffBase::Activate(APawn* Player)
 {
 	if (!Player) return;
 
-	// Appliquer effet ici
 	CachedPlayer = Player;
 
-	Player->GetWorld()->GetTimerManager().SetTimer(
+	UWorld* World = Player->GetWorld();
+	if (!World) return;
+
+	World->GetTimerManager().SetTimer(
 		DurationHandle,
 		this,
 		&UBuffBase::OnBuffExpired,
 		Duration,
 		false
-		);
+	);
 }
 
-void UBuffBase::OnBuffExpired() 
+void UBuffBase::OnBuffExpired()
 {
 	if (!CachedPlayer) return;
 
 	UE_LOG(LogTemp, Warning, TEXT("Buff Expired on %s"), *CachedPlayer->GetName());
-
 	CachedPlayer = nullptr;
 }

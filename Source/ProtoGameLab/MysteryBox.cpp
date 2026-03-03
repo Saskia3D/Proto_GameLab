@@ -1,10 +1,10 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-
 #include "MysteryBox.h"
 #include "Components/BoxComponent.h"
 #include "BuffBase.h"
 #include "MyVehiclePawn.h"
+#include "STR_RacerPawn.h"
 #include "BuffComponent.h"
 
 // Sets default values
@@ -39,6 +39,7 @@ void AMysteryBox::OnOverlapBegin(UPrimitiveComponent* OverlappedComp,
     bool bFromSweep,
     const FHitResult& SweepResult)
 {
+    /*
     AMyVehiclePawn* Vehicle = Cast<AMyVehiclePawn>(OtherActor);
 
     if (Vehicle && PossibleBuffs.Num() > 0)
@@ -53,5 +54,24 @@ void AMysteryBox::OnOverlapBegin(UPrimitiveComponent* OverlappedComp,
         UE_LOG(LogTemp, Warning, TEXT("MysteryBox: Buff stocké !"));
 
         Destroy();
+    }*/
+
+    ASTR_RacerPawn* RacerPawn = Cast<ASTR_RacerPawn>(OtherActor);
+
+    if (RacerPawn && PossibleBuffs.Num() > 0)
+    {
+        int32 Index = FMath::RandRange(0, PossibleBuffs.Num() - 1);
+        TSubclassOf<UBuffBase> SelectedBuff = PossibleBuffs[Index];
+
+        if (UBuffComponent* FoundBuffComp = RacerPawn->FindComponentByClass<UBuffComponent>())
+        {
+            FoundBuffComp->AddBuff(SelectedBuff);
+            UE_LOG(LogTemp, Warning, TEXT("MysteryBox: Buff added to BuffComponent!"));
+            Destroy();
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("MysteryBox: Racer has NO BuffComponent!"));
+        }
     }
 }
