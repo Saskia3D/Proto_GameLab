@@ -34,4 +34,11 @@ protected:
         int32 OtherBodyIndex,
         bool bFromSweep,
         const FHitResult& SweepResult);
+
+    FTimerHandle RespawnTimer;
+    
+    UPROPERTY(EDitAnywhere, Category="MysteryBox")
+    float RespawnDelay = 5.f;
+
+    void RespawnBox();
 };

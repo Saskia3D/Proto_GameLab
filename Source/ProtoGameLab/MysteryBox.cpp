@@ -61,12 +61,35 @@ void AMysteryBox::OnOverlapBegin(UPrimitiveComponent* OverlappedComp,
 
     UE_LOG(LogTemp, Warning, TEXT("Overlap with: %s"), *GetNameSafe(OtherActor));
 
-    if (!RacerPawn)
+    if (!RacerPawn || PossibleBuffs.Num() == 0)
     {
         UE_LOG(LogTemp, Error, TEXT("Cast to STR_RacerPawn FAILED"));
+        return;
     }
 
-    if (RacerPawn && PossibleBuffs.Num() > 0)
+    if (RacerPawn->BuffComponent)
+    {
+        int32 Index = FMath::RandRange(0, PossibleBuffs.Num() - 1);
+        TSubclassOf<UBuffBase> SelectedBuff = PossibleBuffs[Index];
+
+        RacerPawn->BuffComponent->AddBuff(SelectedBuff);
+
+        UE_LOG(LogTemp, Warning, TEXT("MysteryBox: Buff added!"));
+
+        SetActorHiddenInGame(true);
+        SetActorEnableCollision(false);
+
+        GetWorld()->GetTimerManager().SetTimer(
+            RespawnTimer,
+            this,
+            &AMysteryBox::RespawnBox,
+            RespawnDelay,
+            false
+        );
+    }
+
+
+    /*if (RacerPawn && PossibleBuffs.Num() > 0)
     {
         int32 Index = FMath::RandRange(0, PossibleBuffs.Num() - 1);
         TSubclassOf<UBuffBase> SelectedBuff = PossibleBuffs[Index];
@@ -81,5 +104,11 @@ void AMysteryBox::OnOverlapBegin(UPrimitiveComponent* OverlappedComp,
         {
             UE_LOG(LogTemp, Error, TEXT("MysteryBox: Racer has NO BuffComponent!"));
         }
-    }
+    }*/
+}
+
+void AMysteryBox::RespawnBox()
+{
+    SetActorHiddenInGame(false);
+    SetActorEnableCollision(true);
 }
