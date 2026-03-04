@@ -74,6 +74,11 @@ void AMysteryBox::OnOverlapBegin(UPrimitiveComponent* OverlappedComp,
 
         RacerPawn->BuffComponent->AddBuff(SelectedBuff);
 
+        if (GEngine)
+        {
+            GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Blue, TEXT("Buff Added!"));
+        }
+
         UE_LOG(LogTemp, Warning, TEXT("MysteryBox: Buff added!"));
 
         SetActorHiddenInGame(true);

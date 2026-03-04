@@ -13,6 +13,11 @@ void UTimeStopBuff::Activate(APawn* Player)
 
 	ApplyTimeStop();
 
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Blue, TEXT("TimeStop Activated!"));
+	}
+
 	UE_LOG(LogTemp, Warning, TEXT("TimeStop activated by %s"), *GetNameSafe(CachedPlayer));
 
 	//Timer
@@ -64,6 +69,11 @@ void UTimeStopBuff::ApplyTimeStop()
 void UTimeStopBuff::OnBuffExpired()
 {
 	RestoreTimeStop();
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Blue, TEXT("TimeStop Expired!"));
+	}
 
 	UE_LOG(LogTemp, Warning, TEXT("TimeStop Expired (instigator was %s)"), *GetNameSafe(CachedPlayer));
 

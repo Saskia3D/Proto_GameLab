@@ -32,6 +32,11 @@ void UTurboBuff::Activate(APawn* Player)
     // Multiplier torque (exemple simple)
     Movement->EngineSetup.MaxTorque *= 1.5f;*/
 
+    if (GEngine)
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Blue, TEXT("Turbo Activated!"));
+    }
+
     UE_LOG(LogTemp, Warning, TEXT("Turbo Activated!"));
 
     Super::Activate(Player);
@@ -53,6 +58,11 @@ void UTurboBuff::OnBuffExpired()
     if (ASTR_RacerPawn* Racer = CachedRacer.Get())
     {
         Racer->MaxSpeed = OriginalMaxSpeed;
+    }
+
+    if (GEngine)
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Blue, TEXT("Turbo Expired"));
     }
 
     UE_LOG(LogTemp, Warning, TEXT("Turbo Expired!"));
