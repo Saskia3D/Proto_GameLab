@@ -82,6 +82,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Race")
 	AActor* GetWinner() const; // Obtenir le gagnant de la course
 
+	UFUNCTION(BlueprintCallable, Category="Race")
+    void NotifyLapCompleted(AController* Controller, int32 NewLapNumber);
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -107,11 +110,12 @@ private:
 	TObjectPtr<AActor> FinishedViewCameraActor = nullptr; // Caméra à utiliser pour les joueurs qui ont terminé la course
 
 	UPROPERTY(EditAnywhere, Category = "Race|Camera")
-	int32 NumPlayersToFinish = 1; // Le nombre de joueurs qui doivent terminer la course avant de la considérer comme terminée
+	int32 NumPlayersToFinish = 2; // Le nombre de joueurs qui doivent terminer la course avant de la considérer comme terminée
 
 	double StartTimeSeconds = 0.0; // Le temps auquel la course a commencé, en secondes
 	void FreezeFinishedPlayer(AActor* PlayerActor); // Gèle le joueur qui a terminé la course pour éviter qu'il puisse continuer à jouer après avoir fini
 	bool HasPlayerFinishedAlready(AActor* PlayerActor) const; // Vérifie si un joueur a déjà terminé la course
+	bool bHasTriggeredEndMenu = false; // Indique si le menu de fin de course a déjà été déclenché pour éviter de le déclencher plusieurs fois
 	
 	int32 CompareControllers(AController* A, AController* B) const; // Compare deux contrôleurs pour déterminer leur ordre dans la course, en fonction de leur progression et de leur distance au prochain checkpoint
 	float ComputeDistanceToNextCheckpoint(APawn* Pawn, int32 LastCheckpoint) const; // Calcule la distance d'un joueur au prochain checkpoint, utilisée pour déterminer sa position relative dans la course

@@ -1,8 +1,8 @@
 // FinishLine.cpp - Implémentation de la classe AFinishLine, qui représente la ligne d'arrivée dans le jeu
 
-
 #include "FinishLine.h"
 #include "STR_RacerPawn.h"
+#include "TimerManager.h"
 #include "Components/BoxComponent.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
@@ -41,6 +41,7 @@ AFinishLine::AFinishLine()
 void AFinishLine::BeginPlay()
 {
 	Super::BeginPlay();
+	LapByController.Reset();
 	TriggerBox->OnComponentBeginOverlap.AddDynamic(this, &AFinishLine::OnOverlapBegin); // Lier la fonction d'overlap
 	UE_LOG(LogTemp, Warning, TEXT("FinishLine BeginPlay: %s"), *GetName()); // Log pour vérifier que le BeginPlay est appelé
 	UE_LOG(LogTemp, Warning, TEXT("RaceGameMode BeginPlay")); // Log pour vérifier que le BeginPlay du GameMode est appelé
@@ -80,7 +81,7 @@ void AFinishLine::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* Ot
 	UE_LOG(LogTemp, Warning, TEXT("[FINISH] Pawn=%s Controller=%s IsPlayerControlled=%d"),
 		*GetNameSafe(Pawn), *GetNameSafe(C), Pawn->IsPlayerControlled());
 
-	// IMPORTANT: on log la velocity avant tout
+	//on log la velocity avant tout
 	const FVector V = Pawn->GetVelocity();
 	float Speed = Pawn->GetVelocity().Size();
 	FVector MoveDir = Pawn->GetVelocity().GetSafeNormal();
@@ -99,8 +100,6 @@ void AFinishLine::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* Ot
 
 	const FVector ForwardVector = ArrowComponent ? ArrowComponent->GetForwardVector() : GetActorForwardVector();
 	const float Dot = FVector::DotProduct(MoveDir, ForwardVector);
-	//const FVector ForwardVector = ArrowComponent ? ArrowComponent->GetForwardVector() : GetActorForwardVector();
-	//const float Dot = FVector::DotProduct(V.GetSafeNormal(), ForwardVector);
 	UE_LOG(LogTemp, Warning, TEXT("[FINISH] Dot=%.3f (MinForwardDot=%.3f)"), Dot, MinForwardDot);
 
 	if (Dot < MinForwardDot)
@@ -108,12 +107,6 @@ void AFinishLine::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* Ot
 		UE_LOG(LogTemp, Warning, TEXT("FinishLine ignored: wrong direction (Dot=%.3f)"), Dot);
 		return;
 	}
-
-	/*if (Dot < MinForwardDot)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[FINISH] RETURN: wrong direction"));
-		return;
-	}*/
 
 	if (AlreadyTriggered.Contains(OtherActor))
 	{
@@ -130,67 +123,77 @@ void AFinishLine::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* Ot
 		return;
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("[FINISH] SUCCESS -> NotifyPlayerFinished(%s)"), *GetNameSafe(OtherActor));
+	UE_LOG(LogTemp, Warning, TEXT("[FINISH] SUCCESS -> Lap logic (%s)"), *GetNameSafe(OtherActor));
 	AlreadyTriggered.Add(OtherActor);
-	GameMode->NotifyPlayerFinished(OtherActor);
-}
 
-/*
-void AFinishLine::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
-{
-	UE_LOG(LogTemp, Warning, TEXT("FinishLine Overlap with: %s"), *GetNameSafe(OtherActor)); // Log pour vérifier que la fonction d'overlap est appelée et quel acteur a déclenché l'overlap
-
-	if (OtherActor && (OtherActor != this) && OtherComp)
+	FTimerHandle Tmp;
+	GetWorldTimerManager().SetTimer(Tmp, [this, OtherActor]()
 	{
-		if (!IsPlayerVehicle(OtherActor))
-		{
-			return; // Ignore si ce n'est pas un véhicule du joueur
-		}
-		
-		APawn* Pawn = Cast<APawn>(OtherActor);
-		if(!Pawn)
-		{
-			return; // Ignore si ce n'est pas un Pawn
-		}
+		UE_LOG(LogTemp, Warning, TEXT("[FINISH] Timer callback -> NotifyPlayerFinished(%s)"), *GetNameSafe(OtherActor));
+		AlreadyTriggered.Remove(OtherActor);
+		}, 0.5f, false); // délai de 0.5s pour éviter les problèmes d'overlap multiple
 
-		const FVector Velocity = Pawn->GetVelocity(); // Obtenir la vitesse du véhicule pour vérifier si trop lent
-		const float Speed = Velocity.Size(); // Calculer la vitesse en unités Unreal (cm/s)
-
-		if(Speed < MinSpeed) // Seuil de vitesse
-		{
-			return; // Ignore si le véhicule est trop lent
-		}
-
-		const FVector ForwardVector = ArrowComponent ? ArrowComponent->GetForwardVector() : GetActorForwardVector(); // Obtenir la direction de la ligne d'arrivée
-
-		const float Dot = FVector::DotProduct(Velocity.GetSafeNormal(), ForwardVector); // Calculer le dot product pour vérifier l'orientation du véhicule
-
-		UE_LOG(LogTemp, Warning, TEXT("Speed=%.2f Dot=%.2f"), Speed, Dot); // Log pour vérifier les valeurs de vitesse et d'orientation du véhicule lors de l'overlap
-
-		if(Dot < MinForwardDot) // Seuil d'orientation
-		{
-			UE_LOG(LogTemp, Warning, TEXT("FinishLine Overlap ignored, wrong direction: %s"), *GetNameSafe(OtherActor)); // Log pour vérifier que l'overlap est ignoré à cause de l'orientation
-			return; // Ignore si le véhicule n'est pas orienté dans la bonne direction
-		}
-
-		ARaceGameMode* GameMode = Cast<ARaceGameMode>(UGameplayStatics::GetGameMode(GetWorld())); // Obtenir le GameMode pour notifier que le joueur a terminé la course
-
-		if(GameMode)
-		{
-			if(AlreadyTriggered.Contains(OtherActor))
-			{
-				return; // Ignore si ce joueur a déjà déclenché la ligne d'arrivée
-			}
-			AlreadyTriggered.Add(OtherActor); // Ajouter le joueur à l'ensemble des joueurs qui ont déjà déclenché la ligne d'arrivée
-			GameMode->NotifyPlayerFinished(OtherActor); // Notifier le GameMode que le joueur a terminé la course
-			return;
-		}
+	// Lap counter
+	AController* Controller = Pawn->GetController();
+	if(!Controller) 
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[FINISH] No controller for pawn %s"), *GetNameSafe(Pawn));
+		return;
 	}
-}*/
+
+	FLapData& Data = LapByController.FindOrAdd(Controller);
+
+	if (!Data.bArmed)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[FINISH] RETURN: not armed (need ArmGate)"));
+		return;
+	}
+
+	const float Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+	if (Now - Data.LastCrossTime < LapCooldownSeconds)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[FINISH] RETURN: lap cooldown"));
+		return;
+	}
+
+	Data.LastCrossTime = Now;
+	Data.LapNumber++;
+	Data.bArmed = false;
+
+	// A chaque lap, on appelle NotifyLapCompleted
+	if (GameMode)
+	{
+		GameMode->NotifyLapCompleted(Controller, Data.LapNumber);
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("[FINISH] LAP++ Controller=%s Lap=%d/%d"),
+		*GetNameSafe(Controller), Data.LapNumber, TotalLaps);
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green,
+			FString::Printf(TEXT("Lap %d/%d"), Data.LapNumber, TotalLaps));
+	}
+
+	if (Data.LapNumber >= TotalLaps)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[FINISH] Player reached MaxLaps -> NotifyPlayerFinished(%s)"),
+			*GetNameSafe(Pawn));
+
+		GameMode->NotifyPlayerFinished(Pawn);
+	}
+}
 
 // Called every frame
 void AFinishLine::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+}
+
+void AFinishLine::ArmForController(AController* Controller)
+{
+	if (!Controller) return;
+	FLapData& Data = LapByController.FindOrAdd(Controller);
+	Data.bArmed = true;
 }
 

@@ -1,11 +1,13 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// STR_RacerPawn.cpp - Implémentation de la classe ASTR_RacerPawn, qui représente le véhicule contrôlé par le joueur dans le jeu
 
 #include "STR_RacerPawn.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "GameFramework/Pawn.h"
 #include "Camera/CameraComponent.h"
-#include "PaperSpriteComponent.h" // <--- IMPORTANT : On remet ça pour l'image !
+#include "PaperSpriteComponent.h"
 #include "EnhancedInputComponent.h"
+#include "BuffComponent.h"
 #include "EnhancedInputSubsystems.h"
 
 ASTR_RacerPawn::ASTR_RacerPawn()
@@ -29,7 +31,7 @@ ASTR_RacerPawn::ASTR_RacerPawn()
 	//CapsuleComp->SetGenerateOverlapEvents(true);
 	//CapsuleComp->SetCollisionResponseToAllChannels(ECR_Overlap);
 
-	// 2. Setup du Sprite (L'image du vaisseau) <--- C'EST CE QUI MANQUAIT
+	// 2. Setup du Sprite
 	SpriteComp = CreateDefaultSubobject<UPaperSpriteComponent>(TEXT("SpriteComp"));
 	SpriteComp->SetupAttachment(RootComponent);
 	SpriteComp->SetRelativeRotation(FRotator(0.0f, -90.0f, 90.0f)); // À plat
@@ -45,6 +47,9 @@ ASTR_RacerPawn::ASTR_RacerPawn()
 
 	CameraComp = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraComp"));
 	CameraComp->SetupAttachment(SpringArmComp);
+
+	//FoundBuffComp = CreateDefaultSubobject<UBuffComponent>(TEXT("BuffComp"));
+	BuffComponent = CreateDefaultSubobject<UBuffComponent>(TEXT("BuffComponent"));
 
 	// Valeurs par défaut
 	CurrentSpeed = 0.0f;
@@ -166,7 +171,27 @@ void ASTR_RacerPawn::StopBrake(const FInputActionValue& Value)
 
 void ASTR_RacerPawn::UseItem(const FInputActionValue& Value)
 {
-	UE_LOG(LogTemp, Warning, TEXT("ITEM UTILISÉ !"));
+	UE_LOG(LogTemp, Warning, TEXT("[ITEM] UseItem called on %s"), *GetName());
+
+	/*UBuffComponent* BuffComp = FindComponentByClass<UBuffComponent>();
+
+	if (BuffComp)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[ITEM] BuffComp found. HasBuff=%d  CurrentBuffPtr=%p"),
+			BuffComp->CurrentBuff != nullptr,
+			BuffComp->CurrentBuff);
+
+		BuffComp->UseBuff();
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("[ITEM] NO BuffComponent on this pawn!"));
+	}*/
+
+	if (BuffComponent)
+	{
+		BuffComponent->UseBuff();
+	}
 }
 
 void ASTR_RacerPawn::PossessedBy(AController* NewController)
