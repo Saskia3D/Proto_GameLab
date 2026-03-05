@@ -82,6 +82,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Race")
 	AActor* GetWinner() const; // Obtenir le gagnant de la course
 
+	UFUNCTION(BlueprintCallable, Category="Race")
+    void NotifyLapCompleted(AController* Controller, int32 NewLapNumber);
+
 protected:
 	virtual void BeginPlay() override;
 

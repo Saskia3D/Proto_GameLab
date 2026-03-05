@@ -160,6 +160,12 @@ void AFinishLine::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* Ot
 	Data.LapNumber++;
 	Data.bArmed = false;
 
+	// A chaque lap, on appelle NotifyLapCompleted
+	if (GameMode)
+	{
+		GameMode->NotifyLapCompleted(Controller, Data.LapNumber);
+	}
+
 	UE_LOG(LogTemp, Warning, TEXT("[FINISH] LAP++ Controller=%s Lap=%d/%d"),
 		*GetNameSafe(Controller), Data.LapNumber, TotalLaps);
 

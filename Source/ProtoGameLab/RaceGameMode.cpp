@@ -17,11 +17,22 @@ void ARaceGameMode::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (!TrackManager)
+	{
+		TrackManager = Cast<ATrackManager>(
+			UGameplayStatics::GetActorOfClass(GetWorld(), ATrackManager::StaticClass())
+		);
+	}
+
 	// Si une classe de TrackManager est assignée dans l'éditeur, crée une instance de TrackManager pour gérer les checkpoints et la progression de la course
-	if (TrackManagerClass)
+	if (!TrackManager && TrackManagerClass)
 	{
 		TrackManager = GetWorld()->SpawnActor<ATrackManager>(TrackManagerClass);
 	}
+
+	UE_LOG(LogTemp, Warning, TEXT("RaceGameMode TrackManager = %s (CPCount=%d)"),
+		*GetNameSafe(TrackManager),
+		TrackManager ? TrackManager->GetCheckpointCount() : -1);
 
 	StartRace(); // Démarre la course dès que le jeu commence
 	UE_LOG(LogTemp, Warning, TEXT("RaceGameMode BeginPlay (ACTIVE)")); // Log pour vérifier que le BeginPlay est appelé et que la course démarre correctement
@@ -179,7 +190,12 @@ float ARaceGameMode::ComputeDistanceToNextCheckpoint(APawn* PlayerPawn, int32 La
 {
 	if (!TrackManager || !PlayerPawn) return 0.f; // Vérifie que le TrackManager et le Pawn sont valides
 
-	const int32 NextIndex = LastCheckpoint + 1; // Détermine l'index du prochain checkpoint
+	const int32 Count = TrackManager->GetCheckpointCount();
+	if (Count <= 0) return 99999999999.f;
+
+	const int32 NextIndex = (LastCheckpoint < 0)
+		? 0
+		: (LastCheckpoint + 1) % Count; // Détermine l'index du prochain checkpoint
 	ACheckpoint* NextCheckpoint = TrackManager->GetCheckpoint(NextIndex); // Récupère le prochain checkpoint à partir du TrackManager
 	if (!NextCheckpoint) return 999999999999.f;
 
@@ -230,11 +246,63 @@ void ARaceGameMode::UpdatePositions()
 
 	const int32 Result = CompareControllers(ControllerA, ControllerB);
 
+	const FPlayerRaceProgress* ProgressA = ProgressByController.Find(ControllerA);
+	const FPlayerRaceProgress* ProgressB = ProgressByController.Find(ControllerB);
+
+	//Cette section permet de track la progression des joueurs en log checkpoint par checkpoint et lap par lap
+	if (!TrackManager)
+	{
+		UE_LOG(LogTemp, Error, TEXT("RACE PROGRESS SKIP: TrackManager is NULL"));
+		return;
+	}
+
+	const int32 CPCount = TrackManager ? TrackManager->GetCheckpointCount() : 0;
+	if (CPCount <= 0) return;
+
+	const int32 SafeCPA = FMath::Max(ProgressA->LastCheckpoint, 0);
+	const int32 SafeCPB = FMath::Max(ProgressB->LastCheckpoint, 0);
+
+	const int32 ProgA = ProgressA->Lap * CPCount + SafeCPA;
+	const int32 ProgB = ProgressB->Lap * CPCount + SafeCPB;
+
+	AController* LeaderCtrl = (ProgA >= ProgB) ? ControllerA : ControllerB;
+	AController* TrailerCtrl = (ProgA >= ProgB) ? ControllerB : ControllerA;
+
+	const FPlayerRaceProgress* LeaderP = (ProgA >= ProgB) ? ProgressA : ProgressB;
+	const FPlayerRaceProgress* TrailerP = (ProgA >= ProgB) ? ProgressB : ProgressA;
+
+	const int32 LeadByCP = FMath::Abs(ProgA - ProgB);
+
+	UE_LOG(LogTemp, Warning, TEXT("[LEAD] %s leads %s by %d checkpoint(s) | Leader(Lap=%d CP=%d) Trailer(Lap=%d CP=%d)"),
+		*GetNameSafe(LeaderCtrl), *GetNameSafe(TrailerCtrl), LeadByCP,
+		LeaderP->Lap, LeaderP->LastCheckpoint,
+		TrailerP->Lap, TrailerP->LastCheckpoint);
+
 	if (GEngine)
 	{
 		const TCHAR* Lead = (Result >= 0) ? TEXT("P1 est devant!") : TEXT("P2 est devant!");
 		GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Cyan, Lead);
 	}
+}
+
+void ARaceGameMode::NotifyLapCompleted(AController* Controller, int32 NewLapNumber)
+{
+	if (!Controller) return;
+
+	FPlayerRaceProgress& Progress = ProgressByController.FindOrAdd(Controller);
+
+	//Lap
+	Progress.Lap = NewLapNumber;
+
+	//Reset
+	Progress.LastCheckpoint = -1;
+
+	if (APawn* Pawn = Controller->GetPawn())
+	{
+		Progress.DistanceToNext = ComputeDistanceToNextCheckpoint(Pawn, Progress.LastCheckpoint);
+	}
+
+	UpdatePositions();
 }
 
 
