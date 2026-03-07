@@ -38,7 +38,7 @@ struct FRaceFinishEntry
 };
 
 // Structure pour suivre la progression de chaque joueur dans la course
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FPlayerRaceProgress
 {
 	GENERATED_BODY()
@@ -46,6 +46,15 @@ struct FPlayerRaceProgress
 	int32 Lap = 0; // Le tour actuel du joueur
 	int32 LastCheckpoint = -1; // L'index du dernier checkpoint que le joueur a franchi, initialisé à -1 pour indiquer qu'il n'a pas encore franchi de checkpoint
 	float DistanceToNext = 999999999999.f; // La distance actuelle du joueur au prochain checkpoint, utilisée pour déterminer la position relative des joueurs dans la course, initialisée à une valeur très élevée pour indiquer que le joueur n'est pas encore proche du prochain checkpoint
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Race")
+	int32 Score = 0; //Score total du joueur
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Race")
+	int32 CheckpointsPassedCount = 0; //Nombre de checkpoints passes
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Race")
+	int32 LapsCompletedCount = 0; //Nombre de tours completes
 };
 
 // Classe de mode de jeu pour la course
@@ -65,12 +74,6 @@ public:
 	void NotifyPlayerFinished(AActor* PlayerActor); // Appelée par les joueurs lorsqu'ils terminent la course
 
 	UFUNCTION(BlueprintCallable, Category = "Race")
-	ERaceState GetRaceState() const { return RaceState; } // Permet aux joueurs de connaître l'état actuel de la course
-
-	UFUNCTION(BlueprintCallable, Category = "Race")
-	float GetRaceTimeSeconds() const;
-
-	UFUNCTION(BlueprintCallable, Category = "Race")
 	const TArray<FRaceFinishEntry>& GetFinishOrder() const { return FinishOrder; } // Permet aux joueurs de connaître l'ordre d'arrivée
 
 	UFUNCTION(BlueprintCallable, Category = "Race")
@@ -79,11 +82,29 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Race")
 	void UpdatePositions(); // Met à jour les positions des joueurs dans la course en fonction de leur progression et de leur distance au prochain checkpoint
 
+	UFUNCTION(BlueprintCallable, Category="Race")
+    void NotifyLapCompleted(AController* Controller, int32 NewLapNumber);
+
 	UFUNCTION(BlueprintCallable, Category = "Race")
 	AActor* GetWinner() const; // Obtenir le gagnant de la course
 
-	UFUNCTION(BlueprintCallable, Category="Race")
-    void NotifyLapCompleted(AController* Controller, int32 NewLapNumber);
+	UFUNCTION(BlueprintCallable, Category = "Race")
+	ERaceState GetRaceState() const { return RaceState; } // Permet aux joueurs de connaître l'état actuel de la course
+
+	UFUNCTION(BlueprintCallable, Category = "Race")
+	float GetRaceTimeSeconds() const;
+
+	//Getters utiles pour systeme pointage
+	UFUNCTION(BlueprintCallable, Category="Race|Score")
+	int32 GetPlayerScore(AController* Controller) const;
+
+	UFUNCTION(BlueprintCallable, Category="Race|Score")
+	int32 GetPlayerCheckpointCount(AController* Controller) const;
+
+	UFUNCTION(BlueprintCallable, Category="Race|Score")
+	int32 GetPlayerLapCount(AController* Controller) const;
+
+	const FPlayerRaceProgress* GetPlayerProgress(AController* Controller) const; //Recupere toute la progression
 
 protected:
 	virtual void BeginPlay() override;
@@ -95,6 +116,12 @@ protected:
 	// Classe de TrackManager à utiliser, assignée dans l'éditeur pour permettre au GameMode de créer une instance du TrackManager au début de la course
 	UPROPERTY(EditDefaultsOnly, Category = "Race")
 	TSubclassOf<ATrackManager> TrackManagerClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Race|Score")
+	int32 PointsPerCheckpoint = 100; //Nombre de points par checkpoint passe
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Race|Score")
+	int32 PointsPerLap = 500; //Nombre de points par tour complete
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Race")

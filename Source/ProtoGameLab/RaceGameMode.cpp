@@ -77,6 +77,19 @@ void ARaceGameMode::NotifyPlayerFinished(AActor* PlayerActor)
 	NewEntry.PlayerActor = PlayerActor; // Associe le joueur à l'entrée
 	NewEntry.FinishTime = GetRaceTimeSeconds(); // Enregistre le temps de course du joueur
 	FinishOrder.Add(NewEntry); // Ajoute l'entrée à l'ordre d'arrivée
+
+	//Log le score final
+	AController* Controller = nullptr;
+	if (APawn* Pawn = Cast<APawn>(PlayerActor))
+	{
+		Controller = Pawn->GetController();
+	}
+	const int32 FinalScore = Controller ? GetPlayerScore(Controller) : 0;
+    UE_LOG(LogTemp, Warning,
+		TEXT("[FINISH SCORE] Player=%s | FinalScore=%d"),
+		*GetNameSafe(PlayerActor),
+		FinalScore);
+
 	float FinishTime = GetRaceTimeSeconds(); // Récupère le temps de course du joueur
 
 	UE_LOG(LogTemp, Log, TEXT("Finish: %s at time %.2f seconds"), *PlayerActor->GetName(), FinishTime); // Affiche un message de log avec le nom du joueur et son temps de course
@@ -87,7 +100,13 @@ void ARaceGameMode::NotifyPlayerFinished(AActor* PlayerActor)
 	if (GEngine)
 	{
 		// Affiche un message à l'écran pour le joueur qui a terminé, indiquant sa position et son temps de course
-		const FString Message = FString::Printf(TEXT("%s has finished in position %s with a time of %.2f seconds!"), *PlayerActor->GetName(), Suffix, NewEntry.FinishTime);
+		const FString Message = FString::Printf(
+			TEXT("%s has finished in position %s with a time of %.2f seconds! Score: %d"),
+			*PlayerActor->GetName(),
+			Suffix,
+			NewEntry.FinishTime,
+			FinalScore
+		);
 
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, Message);
 	}
@@ -181,7 +200,27 @@ void ARaceGameMode::NotifyCheckpointPassed(APawn* PlayerPawn, int32 CheckpointIn
 
 	Progress.LastCheckpoint = CheckpointIndex; // Met à jour le dernier checkpoint franchi
 
+	Progress.CheckpointsPassedCount++; //Incrementer le nombre de checkpoints passes
+
+	Progress.Score += PointsPerCheckpoint; //On attribue les points
+
 	Progress.DistanceToNext = ComputeDistanceToNextCheckpoint(PlayerPawn, Progress.LastCheckpoint); // Met à jour la distance au prochain checkpoint pour ce joueur, utilisée pour déterminer sa position relative dans la course
+
+	//Logs pour systeme pointage
+	UE_LOG(LogTemp, Warning,
+		TEXT("[SCORE] %s earned %d checkpoint points | TotalScore=%d | TotalCP=%d"),
+		*GetNameSafe(Controller),
+		PointsPerCheckpoint,
+		Progress.Score,
+		Progress.CheckpointsPassedCount);
+    if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Cyan,
+			FString::Printf(TEXT("%s: +%d CP points | Score=%d"),
+				*GetNameSafe(Controller),
+				PointsPerCheckpoint,
+				Progress.Score));
+	}
 
 	UpdatePositions(); // Met à jour les positions des joueurs dans la course en fonction de leur progression et de leur distance au prochain checkpoint
 }
@@ -294,6 +333,26 @@ void ARaceGameMode::NotifyLapCompleted(AController* Controller, int32 NewLapNumb
 	//Lap
 	Progress.Lap = NewLapNumber;
 
+	//Attribuer les points
+	Progress.LapsCompletedCount++;
+	Progress.Score += PointsPerLap;
+
+	//Logs systeme pointage
+	UE_LOG(LogTemp, Warning,
+		TEXT("[SCORE] %s earned %d lap points | TotalScore=%d | TotalLaps=%d"),
+		*GetNameSafe(Controller),
+		PointsPerLap,
+		Progress.Score,
+		Progress.LapsCompletedCount);
+    if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Magenta,
+			FString::Printf(TEXT("%s: +%d LAP points | Score=%d"),
+				*GetNameSafe(Controller),
+				PointsPerLap,
+				Progress.Score));
+	}
+
 	//Reset
 	Progress.LastCheckpoint = -1;
 
@@ -305,4 +364,26 @@ void ARaceGameMode::NotifyLapCompleted(AController* Controller, int32 NewLapNumb
 	UpdatePositions();
 }
 
+const FPlayerRaceProgress* ARaceGameMode::GetPlayerProgress(AController* Controller) const
+{
+	if (!Controller) return nullptr;
+	return ProgressByController.Find(Controller);
+}
 
+int32 ARaceGameMode::GetPlayerScore(AController* Controller) const
+{
+	const FPlayerRaceProgress* Progress = GetPlayerProgress(Controller);
+	return Progress ? Progress->Score : 0;
+}
+
+int32 ARaceGameMode::GetPlayerCheckpointCount(AController* Controller) const
+{
+	const FPlayerRaceProgress* Progress = GetPlayerProgress(Controller);
+	return Progress ? Progress->CheckpointsPassedCount : 0;
+}
+
+int32 ARaceGameMode::GetPlayerLapCount(AController* Controller) const
+{
+	const FPlayerRaceProgress* Progress = GetPlayerProgress(Controller);
+	return Progress ? Progress->LapsCompletedCount : 0;
+}
