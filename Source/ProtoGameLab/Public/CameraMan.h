@@ -27,7 +27,7 @@ public:
 	UCameraComponent* Camera;
 
 	UPROPERTY(EditAnywhere)
-	float CameraHeight = 900.f;
+	float CameraHeight = 1000.f;
 
 	UPROPERTY(EditAnywhere)
 	float CameraBackOffset = 300.f;
@@ -37,7 +37,7 @@ public:
 	float MinZoom = 800.f;
 
 	UPROPERTY(EditAnywhere)
-	float MaxZoom = 3000.f;
+	float MaxZoom = 1000.f;
 
 	UPROPERTY(EditAnywhere)
 	float ZoomMultiplier = 1.0f;

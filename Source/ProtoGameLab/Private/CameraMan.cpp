@@ -9,7 +9,9 @@ ACamManager::ACamManager()
 
 	// C++ constructor
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
-	RootComponent = SpringArm;
+
+	USceneComponent* SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
+	RootComponent = SceneRoot;
 
 
 	// Spring arm not really needed for top-down side camera, but kept for future adjustments
@@ -69,28 +71,29 @@ void ACamManager::Tick(float DeltaTime)
 
 	// Determine max distance between players for zoom
 	float MaxDistance = 0.f;
-	if (Players.Num() > 1)
+
+	for (int i = 0; i < Players.Num(); i++)
 	{
-		for (int i = 0; i < Players.Num(); i++)
+		for (int j = i + 1; j < Players.Num(); j++)
 		{
-			for (int j = i + 1; j < Players.Num(); j++)
-			{
-				float Dist = FVector::Dist(Players[i]->GetActorLocation(), Players[j]->GetActorLocation());
-				MaxDistance = FMath::Max(MaxDistance, Dist);
-			}
+			float Dist = FVector::Dist(
+				Players[i]->GetActorLocation(),
+				Players[j]->GetActorLocation()
+			);
+
+			MaxDistance = FMath::Max(MaxDistance, Dist);
 		}
 	}
 
 	// Compute side offset for camera (if only 1 player, uses default side offset)
-	float SideOffset = Players.Num() > 1
-		? FMath::Clamp(MaxDistance * ZoomMultiplier, MinZoom, MaxZoom)
-		: MinZoom;
+	float ZoomDistance = MaxDistance * 0.685f;
 
 	// Camera is always behind and to the side of the midpoint
 	FVector CameraOffset;
-	CameraOffset.X = -800.f;       // behind along track
-	CameraOffset.Y = -SideOffset;  // side offset based on zoom
-	CameraOffset.Z = CameraHeight; // height above track
+
+	CameraOffset.X = - (MinZoom) - ZoomDistance;
+	CameraOffset.Y = - (CameraBackOffset);
+	CameraOffset.Z = CameraHeight;
 
 	FVector TargetLocation = Midpoint + CameraOffset;
 
