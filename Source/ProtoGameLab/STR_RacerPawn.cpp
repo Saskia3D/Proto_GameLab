@@ -38,6 +38,7 @@ ASTR_RacerPawn::ASTR_RacerPawn()
 	SpriteComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	SpriteComp->SetGenerateOverlapEvents(false);
 
+
 	// 3. Setup de la Caméra
 	SpringArmComp = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArmComp"));
 	SpringArmComp->SetupAttachment(RootComponent);
@@ -125,6 +126,28 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 	}
 
 	UE_LOG(LogTemp, Warning, TEXT("Overlaps=%d  CheckpointOverlaps=%d"), Overlapping.Num(), CountCP);
+	
+	if (!MovementInput.IsNearlyZero() && CarSprites.Num() > 0)
+	{
+		FVector2D InputDir = MovementInput.GetSafeNormal();
+
+		// Get angle in degrees (-180 to 180)
+		float Angle = FMath::Atan2(InputDir.Y, InputDir.X);
+		Angle = FMath::RadiansToDegrees(Angle);
+		if (Angle < 0.f) Angle += 360.f;
+
+		// Map angle to 8 directions (0-7)
+		int DirectionIndex = FMath::FloorToInt((Angle + 22.5f) / 45.f) % 8;
+
+		// Set the sprite if valid
+		if (CarSprites.IsValidIndex(DirectionIndex))
+		{
+			SpriteComp->SetSprite(CarSprites[DirectionIndex]);
+
+			// <-- Force the visual update here
+			SpriteComp->MarkRenderStateDirty();
+		}
+	}
 }
 
 void ASTR_RacerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
