@@ -56,7 +56,7 @@ public:
 	UInputMappingContext* DefaultMappingContext;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	UInputAction* MoveAction;
+	UInputAction* SteerAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* BrakeAction;
@@ -69,10 +69,22 @@ public:
 	float MaxSpeed = 1200.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float AccelerationRate = 400.0f;
+	float AccelerationRate = 450.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float BrakingDeceleration = 700.0f;
+	float BrakingDeceleration = 850.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mouvement|Steering")
+	float MaxTurnRate = 220.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mouvement|Steering")
+	float MinTurnRateAtMaxSpeed = 120.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mouvement|Steering")
+	float SteeringInterpSpeed = 8.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mouvement|Steering")
+	float MinSpeedToTurn = 40.f;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Buff")
 	//UBuffComponent* FoundBuffComp = FindComponentByClass<UBuffComponent>();
@@ -81,13 +93,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Mouvement")
 	float GetCurrentSpeed() const { return CurrentSpeed; } // Getter pour la vitesse actuelle, utile pour les Blueprints
 
-private:
-	float CurrentSpeed;
-	FVector2D MovementInput;
+protected:
+	float CurrentSpeed = 0.f;
+	float TargetSteeringInput = 0.f;
+	float CurrentSteeringInput = 0.f;
+	//FVector2D MovementInput;
 	bool bIsBraking;
 
 	// Fonctions Inputs
-	void Move(const FInputActionValue& Value);
+	void Steer(const FInputActionValue& Value);
 	void StartBrake(const FInputActionValue& Value);
 	void StopBrake(const FInputActionValue& Value);
 	void UseItem(const FInputActionValue& Value);

@@ -53,6 +53,8 @@ ASTR_RacerPawn::ASTR_RacerPawn()
 
 	// Valeurs par défaut
 	CurrentSpeed = 0.0f;
+	TargetSteeringInput = 0.f;
+	CurrentSteeringInput = 0.f;
 	bIsBraking = false;
 }
 
@@ -90,17 +92,27 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 
 	CurrentSpeed = FMath::Clamp(CurrentSpeed, 0.0f, MaxSpeed);
 
-	// --- 2. GESTION ROTATION ---
-	if (!MovementInput.IsZero())
+	CurrentSteeringInput = FMath::FInterpTo(
+		CurrentSteeringInput,
+		TargetSteeringInput,
+		DeltaTime,
+		SteeringInterpSpeed
+	);
+
+	if (CurrentSpeed > MinSpeedToTurn && !FMath::IsNearlyZero(CurrentSteeringInput, 0.01f))
 	{
-		FVector Direction = FVector(MovementInput.X, MovementInput.Y, 0.0f);
-		if (!Direction.IsNearlyZero())
-		{
-			SetActorRotation(Direction.Rotation());
-		}
+		const float SpeedRatio = FMath::Clamp(CurrentSpeed / MaxSpeed, 0.0f, 1.f);
+
+		const float TurnRate = FMath::Lerp(
+			MaxTurnRate,
+			MinTurnRateAtMaxSpeed,
+			SpeedRatio
+		);
+
+		const float YawDelta = CurrentSteeringInput * TurnRate * DeltaTime;
+		AddActorLocalRotation(FRotator(0.0f, YawDelta, 0.0f));
 	}
 
-	// --- 3. MOUVEMENT ---
 	const FVector Delta = GetActorForwardVector() * CurrentSpeed * DeltaTime;
 
 	FHitResult Hit;
@@ -134,17 +146,19 @@ void ASTR_RacerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent))
 	{
 		// Ajout de "if (MoveAction)" pour éviter un crash si l'action n'est pas assignée dans le Blueprint
-		if (MoveAction)
+		if (SteerAction)
 		{
-			EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ASTR_RacerPawn::Move);
+			EnhancedInputComponent->BindAction(SteerAction, ETriggerEvent::Triggered, this, &ASTR_RacerPawn::Steer);
 			// Astuce : Quand on lâche le stick, on arrête de tourner (Optionnel mais mieux)
-			EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Completed, this, &ASTR_RacerPawn::Move);
+			EnhancedInputComponent->BindAction(SteerAction, ETriggerEvent::Completed, this, &ASTR_RacerPawn::Steer);
+			EnhancedInputComponent->BindAction(SteerAction, ETriggerEvent::Canceled, this, &ASTR_RacerPawn::Steer);
 		}
 
 		if (BrakeAction)
 		{
 			EnhancedInputComponent->BindAction(BrakeAction, ETriggerEvent::Started, this, &ASTR_RacerPawn::StartBrake);
 			EnhancedInputComponent->BindAction(BrakeAction, ETriggerEvent::Completed, this, &ASTR_RacerPawn::StopBrake);
+			EnhancedInputComponent->BindAction(BrakeAction, ETriggerEvent::Canceled, this, &ASTR_RacerPawn::StopBrake);
 		}
 
 		if (ItemAction)
@@ -154,9 +168,15 @@ void ASTR_RacerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 	}
 }
 
-void ASTR_RacerPawn::Move(const FInputActionValue& Value)
+void ASTR_RacerPawn::Steer(const FInputActionValue& Value)
 {
-	MovementInput = Value.Get<FVector2D>();
+	const float RawSteer = Value.Get<float>();
+	TargetSteeringInput = FMath::Clamp(RawSteer, -1.0f, 1.0f);
+
+	if (FMath::Abs(TargetSteeringInput) < 0.1f)
+	{
+		TargetSteeringInput = 0.f;
+	}
 }
 
 void ASTR_RacerPawn::StartBrake(const FInputActionValue& Value)
