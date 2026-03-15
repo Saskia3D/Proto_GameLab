@@ -138,7 +138,8 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 	}
 
 	UE_LOG(LogTemp, Warning, TEXT("Overlaps=%d  CheckpointOverlaps=%d"), Overlapping.Num(), CountCP);
-	
+
+	/*
 	if (!MovementInput.IsNearlyZero() && CarSprites.Num() > 0)
 	{
 		FVector2D InputDir = MovementInput.GetSafeNormal();
@@ -159,7 +160,7 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 			// <-- Force the visual update here
 			SpriteComp->MarkRenderStateDirty();
 		}
-	}
+	}*/
 }
 
 void ASTR_RacerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
