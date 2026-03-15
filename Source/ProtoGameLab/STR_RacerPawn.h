@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "PaperSprite.h"
+#include "PaperSpriteComponent.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
 #include "InputActionValue.h" // Nécessite le module EnhancedInput
@@ -89,6 +91,10 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Buff")
 	//UBuffComponent* FoundBuffComp = FindComponentByClass<UBuffComponent>();
 	UBuffComponent* BuffComponent;
+
+	// --- ASSETS ---
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sprites")
+	TArray<UPaperSprite*> CarSprites;
 
 	UFUNCTION(BlueprintCallable, Category="Mouvement")
 	float GetCurrentSpeed() const { return CurrentSpeed; } // Getter pour la vitesse actuelle, utile pour les Blueprints
