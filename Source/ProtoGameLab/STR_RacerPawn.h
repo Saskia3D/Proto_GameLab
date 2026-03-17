@@ -1,21 +1,18 @@
-// STR_RacerPawn.h
-
 #pragma once
 
-#include "PaperSprite.h"
-#include "PaperSpriteComponent.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
-#include "InputActionValue.h" // Nécessite le module EnhancedInput
+#include "InputActionValue.h"
 #include "STR_RacerPawn.generated.h"
 
-// Forward declarations (Pour éviter les erreurs d'inclusions circulaires)
+// Forward declarations
 class UCapsuleComponent;
 class USpringArmComponent;
 class UCameraComponent;
 class UInputMappingContext;
 class UInputAction;
 class UPaperSpriteComponent;
+class UPaperSprite;
 class UBuffComponent;
 
 UCLASS()
@@ -24,23 +21,16 @@ class PROTOGAMELAB_API ASTR_RacerPawn : public APawn
 	GENERATED_BODY()
 
 public:
-	// Sets default values for this pawn's properties
 	ASTR_RacerPawn();
 
 protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
-	virtual void PossessedBy(AController* NewController) override; // Surcharge de la fonction PossessedBy pour ajouter des fonctionnalités lors de la possession du Pawn
-	virtual void UnPossessed() override; // Surcharge de la fonction UnPossessed pour ajouter des fonctionnalités lors de la dépossession du Pawn
+	virtual void PossessedBy(AController* NewController) override;
+	virtual void UnPossessed() override;
 
 public:
-	// Called every frame
 	virtual void Tick(float DeltaTime) override;
-
-	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-	// --- COMPOSANTS ---
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	UCapsuleComponent* CapsuleComp;
 
@@ -53,7 +43,6 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	UCameraComponent* CameraComp;
 
-	// --- INPUTS ---
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputMappingContext* DefaultMappingContext;
 
@@ -66,49 +55,174 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* ItemAction;
 
-	// --- PARAMÈTRES ---
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float MaxSpeed = 1200.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* AccelerateAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float AccelerationRate = 450.0f;
+	float MaxSpeed = 1185.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float BrakingDeceleration = 850.0f;
+	float AccelerationRate = 400.0f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mouvement|Steering")
-	float MaxTurnRate = 220.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+	float BrakingDeceleration = 800.0f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mouvement|Steering")
-	float MinTurnRateAtMaxSpeed = 120.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+	float CoastingDeceleration = 220.f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mouvement|Steering")
-	float SteeringInterpSpeed = 8.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Steering")
+	float MaxTurnRate = 165.f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mouvement|Steering")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Steering")
+	float MinTurnRateAtMaxSpeed = 130.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Steering")
+	float SteeringInterpSpeed = 2.75f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Steering")
 	float MinSpeedToTurn = 40.f;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Buff")
-	//UBuffComponent* FoundBuffComp = FindComponentByClass<UBuffComponent>();
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Buff")
 	UBuffComponent* BuffComponent;
 
-	// --- ASSETS ---
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sprites")
 	TArray<UPaperSprite*> CarSprites;
 
-	UFUNCTION(BlueprintCallable, Category="Mouvement")
-	float GetCurrentSpeed() const { return CurrentSpeed; } // Getter pour la vitesse actuelle, utile pour les Blueprints
+	UFUNCTION(BlueprintCallable, Category = "Movement")
+	float GetCurrentSpeed() const { return CurrentSpeed; }
 
 protected:
 	float CurrentSpeed = 0.f;
 	float TargetSteeringInput = 0.f;
 	float CurrentSteeringInput = 0.f;
-	//FVector2D MovementInput;
-	bool bIsBraking;
 
-	// Fonctions Inputs
+	bool bIsBraking = false;
+	bool bIsAccelerating = false;
+
 	void Steer(const FInputActionValue& Value);
 	void StartBrake(const FInputActionValue& Value);
 	void StopBrake(const FInputActionValue& Value);
 	void UseItem(const FInputActionValue& Value);
+	void StartAccelerate(const FInputActionValue& Value);
+	void StopAccelerate(const FInputActionValue& Value);
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|Drift")
+	bool bIsDrifting = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|Drift")
+	FVector MoveVelocity = FVector::ZeroVector;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
+	float MinSpeedToStartDrift = 500.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
+	float NormalGrip = 17.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
+	float DriftGrip = 12.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
+	float DriftSpeedLossPerSecond = 100.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
+	float DriftAccelMultiplier = 0.28f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
+	float DriftDirectionSwitchThreshold = 0.7f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
+	float DriftSteerThreshold = 0.18f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
+	float MinDriftSpeed = 100.f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|Drift")
+	float CurrentDriftAngle = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
+	float MaxDriftAngle = 25.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
+	float DriftAngleInterpSpeed = 10.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
+	float DriftTurnRateMultiplier = 9.5f;
+
+	int32 DriftDirection = 0;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|DriftBoost")
+	float DriftCharge = 0.f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|DriftBoost")
+	float DriftHeldTime = 0.f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|DriftBoost")
+	bool bWasDriftingLastFrame = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|DriftBoost")
+	float ActiveBoostTimer = 0.f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|DriftBoost")
+	float ActiveBoostBonusSpeed = 0.f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|DriftBoost")
+	FVector LastTravelDir = FVector::ForwardVector;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
+	float MinBoostSpeed = 500.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
+	float MinBoostSlipAngleDeg = 6.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
+	float MaxUsefulSlipAngleDeg = 20.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
+	float MinBoostSteerInput = 0.12f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
+	float MinTravelYawRateDeg = 4.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
+	float DriftChargeRate = 60.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
+	float DriftChargeDecayRate = 12.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
+	float CounterSteerDecayRate = 40.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
+	float MinChargeTimeForBoost = 0.20f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
+	float SmallBoostCharge = 8.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
+	float MediumBoostCharge = 20.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
+	float LargeBoostCharge = 40.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
+	float SmallBoostBonusSpeed = 370.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
+	float MediumBoostBonusSpeed = 575.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
+	float LargeBoostBonusSpeed = 780.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
+	float SmallBoostDuration = 0.75f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
+	float MediumBoostDuration = 1.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
+	float LargeBoostDuration = 1.75f;
+
+	float GetSignedSlipAngleDegrees() const;
+	float GetTravelYawRateDegrees(float DeltaTime, const FVector& CurrentTravelDir) const;
+	void StartDriftBoost(float BonusSpeed, float Duration);
 };
