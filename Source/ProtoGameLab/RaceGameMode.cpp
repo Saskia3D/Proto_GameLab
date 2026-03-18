@@ -319,8 +319,29 @@ void ARaceGameMode::UpdatePositions()
 
 	if (GEngine)
 	{
-		const TCHAR* Lead = (Result >= 0) ? TEXT("P1 est devant!") : TEXT("P2 est devant!");
-		GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Cyan, Lead);
+		FString LeadMessage;
+
+		if (Result > 0)
+		{
+			LeadMessage = FString::Printf(
+				TEXT("P1 est devant P2 ! | Ecart CP: %d"),
+				LeadByCP
+			);
+		}
+		else if (Result < 0)
+		{
+			LeadMessage = FString::Printf(
+				TEXT("P2 est devant P1 ! | Ecart CP: %d"),
+				LeadByCP
+			);
+		}
+		else
+		{
+			LeadMessage = TEXT("P1 et P2 sont a egalite !");
+		}
+
+		// Mets une cle fixe au lieu de -1 pour remplacer le meme message
+		GEngine->AddOnScreenDebugMessage(100, 1.0f, FColor::Cyan, LeadMessage);
 	}
 }
 

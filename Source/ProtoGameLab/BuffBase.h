@@ -16,6 +16,9 @@ class PROTOGAMELAB_API UBuffBase : public UObject
 public:
 	virtual void Activate(APawn* Player);
 
+	void RefreshDuration();
+	bool IsActive() const { return bIsActive; }
+
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	float Duration = 3.0f;
@@ -24,6 +27,10 @@ protected:
 	TObjectPtr<APawn> CachedPlayer = nullptr;
 
 	FTimerHandle DurationHandle;
+
+	bool bIsActive = false;
+
+	void StartDurationTimer();
 
 	virtual void OnBuffExpired();
 };

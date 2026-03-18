@@ -20,8 +20,15 @@ public:
 
 	void AddBuff(TSubclassOf<UBuffBase> BuffClass);
 	void UseBuff();
+	void NotifyBuffExpired(UBuffBase* ExpiredBuff);
 
 public:
 	UPROPERTY()
-	UBuffBase* CurrentBuff;
+	UBuffBase* CurrentBuff = nullptr;
+
+	UPROPERTY()
+	TArray<UBuffBase*> ActiveBuffs;
+
+private:
+	UBuffBase* FindActiveBuffByClass(UClass* BuffClass) const;
 };
