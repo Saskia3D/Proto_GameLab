@@ -91,6 +91,25 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Movement")
 	float GetCurrentSpeed() const { return CurrentSpeed; }
 
+	//fonctions IA
+	UFUNCTION(BlueprintCallable, Category = "AI")
+	void SetSteeringInput(float InSteer);
+
+	UFUNCTION(BlueprintCallable, Category = "AI")
+	void SetAcceleratingState(bool bShouldAccelerate);
+
+	UFUNCTION(BlueprintCallable, Category = "AI")
+	void SetBrakingState(bool bShouldBrake);
+
+	UFUNCTION(BlueprintCallable, Category = "AI")
+	void ClearDrivingInputs();
+
+	UFUNCTION(BlueprintCallable, Category = "AI")
+	void TriggerItemUse();
+
+	UFUNCTION(BlueprintCallable, Category = "AI")
+	bool HasBuff() const;
+
 protected:
 	float CurrentSpeed = 0.f;
 	float TargetSteeringInput = 0.f;
@@ -221,6 +240,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
 	float LargeBoostDuration = 1.75f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mouvement|Drift")
+	bool bAllowDrift = true;
 
 	float GetSignedSlipAngleDegrees() const;
 	float GetTravelYawRateDegrees(float DeltaTime, const FVector& CurrentTravelDir) const;

@@ -73,9 +73,15 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 	const bool bFastEnoughToStartDrift = CurrentSpeed >= MinSpeedToStartDrift;
 	const bool bFastEnoughToKeepDrift = CurrentSpeed >= MinDriftSpeed;
 
+	if (!bAllowDrift && bIsDrifting)
+	{
+		bIsDrifting = false;
+		DriftDirection = 0;
+		CurrentDriftAngle = 0.f;
+	}
 
 	//entree en drift
-	if (!bIsDrifting)
+	if (bAllowDrift && !bIsDrifting)
 	{
 		if (bIsBraking && bFastEnoughToStartDrift && bHasSteerForDrift)
 		{
@@ -469,4 +475,46 @@ void ASTR_RacerPawn::StartAccelerate(const FInputActionValue& Value)
 void ASTR_RacerPawn::StopAccelerate(const FInputActionValue& Value)
 {
 	bIsAccelerating = false;
+}
+
+void ASTR_RacerPawn::SetSteeringInput(float InSteer)
+{
+	TargetSteeringInput = FMath::Clamp(InSteer, -1.0f, 1.0f);
+
+	if (FMath::Abs(TargetSteeringInput) < 0.1f)
+	{
+		TargetSteeringInput = 0.f;
+	}
+}
+
+void ASTR_RacerPawn::SetAcceleratingState(bool bShouldAccelerate)
+{
+	bIsAccelerating = bShouldAccelerate;
+}
+
+void ASTR_RacerPawn::SetBrakingState(bool bShouldBrake)
+{
+	bIsBraking = bShouldBrake;
+}
+
+void ASTR_RacerPawn::ClearDrivingInputs()
+{
+	TargetSteeringInput = 0.f;
+	bIsAccelerating = false;
+	bIsBraking = false;
+}
+
+void ASTR_RacerPawn::TriggerItemUse()
+{
+	UE_LOG(LogTemp, Warning, TEXT("[ITEM] TriggerItemUse called on %s"), *GetName());
+
+	if (BuffComponent)
+	{
+		BuffComponent->UseBuff();
+	}
+}
+
+bool ASTR_RacerPawn::HasBuff() const
+{
+	return BuffComponent && BuffComponent->CurrentBuff != nullptr;
 }
