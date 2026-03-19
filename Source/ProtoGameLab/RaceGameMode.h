@@ -55,6 +55,9 @@ struct FPlayerRaceProgress
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Race")
 	int32 LapsCompletedCount = 0; //Nombre de tours completes
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Race")
+	bool bFinishedRace = false;
 };
 
 // Classe de mode de jeu pour la course
@@ -104,6 +107,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Race|Score")
 	int32 GetPlayerLapCount(AController* Controller) const;
 
+	UFUNCTION(BlueprintCallable, Category="Race")
+	bool IsControllerFinished(AController* Controller) const;
+
 	const FPlayerRaceProgress* GetPlayerProgress(AController* Controller) const; //Recupere toute la progression
 
 protected:
@@ -122,6 +128,12 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Race|Score")
 	int32 PointsPerLap = 500; //Nombre de points par tour complete
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Race|End")
+	bool bUseFinishCountdown = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Race|End")
+	float FinishCountdownSeconds = 15.f;
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Race")
@@ -143,7 +155,9 @@ private:
 	void FreezeFinishedPlayer(AActor* PlayerActor); // Gèle le joueur qui a terminé la course pour éviter qu'il puisse continuer à jouer après avoir fini
 	bool HasPlayerFinishedAlready(AActor* PlayerActor) const; // Vérifie si un joueur a déjà terminé la course
 	bool bHasTriggeredEndMenu = false; // Indique si le menu de fin de course a déjà été déclenché pour éviter de le déclencher plusieurs fois
-	
+	bool bFinishCountdownStarted = false;
+	void EndRace();
+	FTimerHandle FinishCountdownHandle;
 	int32 CompareControllers(AController* A, AController* B) const; // Compare deux contrôleurs pour déterminer leur ordre dans la course, en fonction de leur progression et de leur distance au prochain checkpoint
 	float ComputeDistanceToNextCheckpoint(APawn* Pawn, int32 LastCheckpoint) const; // Calcule la distance d'un joueur au prochain checkpoint, utilisée pour déterminer sa position relative dans la course
 };

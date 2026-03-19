@@ -114,12 +114,25 @@ void AFinishLine::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* Ot
 		return;
 	}
 
+	AController* Controller = Pawn->GetController();
+	if (!Controller)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[FINISH] No controller for pawn %s"), *GetNameSafe(Pawn));
+		return;
+	}
+
 	ARaceGameMode* GameMode = Cast<ARaceGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
 	UE_LOG(LogTemp, Warning, TEXT("[FINISH] GameMode=%s"), *GetNameSafe(GameMode));
 
 	if (!GameMode)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[FINISH] RETURN: no GameMode"));
+		return;
+	}
+
+	if (GameMode->IsControllerFinished(Controller))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[FINISH] RETURN: controller already finished"));
 		return;
 	}
 
@@ -134,12 +147,6 @@ void AFinishLine::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* Ot
 		}, 0.5f, false); // délai de 0.5s pour éviter les problèmes d'overlap multiple
 
 	// Lap counter
-	AController* Controller = Pawn->GetController();
-	if(!Controller) 
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[FINISH] No controller for pawn %s"), *GetNameSafe(Pawn));
-		return;
-	}
 
 	FLapData& Data = LapByController.FindOrAdd(Controller);
 
