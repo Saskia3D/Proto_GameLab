@@ -98,7 +98,7 @@ void ATrackSplineActor::PostEditChangeProperty(FPropertyChangedEvent& PropertyCh
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
-	// Only rebuild if we changed a track-related property
+	ClearGenerated();
 	BuildRoad();
 }
 #endif
@@ -106,6 +106,9 @@ void ATrackSplineActor::PostEditChangeProperty(FPropertyChangedEvent& PropertyCh
 void ATrackSplineActor::BeginPlay()
 {
 	Super::BeginPlay();
+
+	ClearGenerated();
+	BuildRoad();
 }
 
 void ATrackSplineActor::Tick(float DeltaTime)
