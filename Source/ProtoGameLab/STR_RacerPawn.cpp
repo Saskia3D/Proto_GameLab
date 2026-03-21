@@ -64,6 +64,12 @@ void ASTR_RacerPawn::BeginPlay()
 void ASTR_RacerPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (TeleportFeedbackTimer > 0.f)
+	{
+		TeleportFeedbackTimer = FMath::Max(0.f, TeleportFeedbackTimer - DeltaTime);
+	}
+
 	UpdateOffTrackState(DeltaTime);
 
 	float EffectiveAccelerationRate = AccelerationRate;
@@ -758,4 +764,6 @@ void ASTR_RacerPawn::TeleportBackToTrack()
 			FString::Printf(TEXT("%s was returned to the track"), *GetName())
 		);
 	}
+
+	TeleportFeedbackTimer = TeleportFeedbackDuration;
 }

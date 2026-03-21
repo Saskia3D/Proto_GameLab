@@ -90,6 +90,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sprites")
 	TArray<UPaperSprite*> CarSprites;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|UI")
+	float TeleportFeedbackTimer = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|UI")
+	float TeleportFeedbackDuration = 1.75f;
+
 	UFUNCTION(BlueprintCallable, Category = "Movement")
 	float GetCurrentSpeed() const { return CurrentSpeed; }
 
@@ -132,6 +138,32 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Track|OffTrack")
 	bool IsOffTrackPenaltyActive() const { return bOffTrackPenaltyActive; }
+
+	UFUNCTION(BlueprintPure, Category = "Track|UI")
+	float GetOffTrackTime() const { return OffTrackTime; }
+
+	UFUNCTION(BlueprintPure, Category = "Track|UI")
+	float GetRemainingTimeBeforeTeleport() const
+	{
+		if (!bIsOffTrack)
+		{
+			return 0.f;
+		}
+
+		return FMath::Max(0.f, OffTrackTeleportDelay - OffTrackTime);
+	}
+
+	UFUNCTION(BlueprintPure, Category = "Track|UI")
+	int32 GetTeleportCountdownSeconds() const
+	{
+		return FMath::CeilToInt(GetRemainingTimeBeforeTeleport());
+	}
+
+	UFUNCTION(BlueprintPure, Category = "Track|UI")
+	bool IsTeleportFeedbackActive() const
+	{
+		return TeleportFeedbackTimer > 0.f;
+	}
 
 protected:
 	float CurrentSpeed = 0.f;
@@ -296,10 +328,10 @@ protected:
 	float OffTrackDetectionMargin = 35.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
-	float OffTrackPenaltyDelay = 0.25f;
+	float OffTrackPenaltyDelay = 0.5f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
-	float OffTrackMaxSpeedMultiplier = 0.55f;
+	float OffTrackMaxSpeedMultiplier = 0.50f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
 	float OffTrackAccelerationMultiplier = 0.35f;
