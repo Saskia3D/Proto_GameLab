@@ -1,6 +1,7 @@
 #include "TrackSplineActor.h"
 #include "Components/SplineComponent.h"
 #include "Components/SplineMeshComponent.h"
+#include "Engine/StaticMesh.h"
 
 ATrackSplineActor::ATrackSplineActor()
 {
@@ -114,4 +115,47 @@ void ATrackSplineActor::BeginPlay()
 void ATrackSplineActor::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+}
+
+float ATrackSplineActor::GetTrackHalfWidthWorld() const
+{
+	if (!RoadMesh)
+	{
+		return 0.f;
+	}
+
+	const FBoxSphereBounds MeshBounds = RoadMesh->GetBounds();
+	const FVector ActorScale = GetActorScale3D().GetAbs();
+	const float ScaleXY = FMath::Max(ActorScale.X, ActorScale.Y);
+
+	// On suppose que la largeur utile de la route correspond à l'axe X du mesh.
+	return MeshBounds.BoxExtent.X * RoadWidthScale * ScaleXY;
+}
+
+float ATrackSplineActor::GetDistanceFromTrackCenter2D(const FVector& WorldLocation) const
+{
+	if (!Spline)
+	{
+		return BIG_NUMBER;
+	}
+
+	const FVector ClosestLocation = Spline->FindLocationClosestToWorldLocation(
+		WorldLocation,
+		ESplineCoordinateSpace::World
+	);
+
+	return FVector::Dist2D(WorldLocation, ClosestLocation);
+}
+
+bool ATrackSplineActor::IsLocationOnTrack(const FVector& WorldLocation, float ExtraMargin) const
+{
+	const float HalfWidth = GetTrackHalfWidthWorld();
+
+	if (HalfWidth <= 0.f)
+	{
+		return false;
+	}
+
+	const float DistanceToCenter = GetDistanceFromTrackCenter2D(WorldLocation);
+	return DistanceToCenter <= (HalfWidth + ExtraMargin);
 }

@@ -7,6 +7,8 @@
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "PaperSpriteComponent.h"
+#include "TrackSplineActor.h"
+#include "Kismet/GameplayStatics.h"
 
 ASTR_RacerPawn::ASTR_RacerPawn()
 {
@@ -45,9 +47,39 @@ ASTR_RacerPawn::ASTR_RacerPawn()
 	BuffComponent = CreateDefaultSubobject<UBuffComponent>(TEXT("BuffComponent"));
 }
 
+void ASTR_RacerPawn::BeginPlay()
+{
+	Super::BeginPlay();
+
+	TrackSplineActor = Cast<ATrackSplineActor>(
+		UGameplayStatics::GetActorOfClass(GetWorld(), ATrackSplineActor::StaticClass())
+	);
+
+	if (!TrackSplineActor)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[OFF TRACK] No TrackSplineActor found for %s"), *GetName());
+	}
+}
+
 void ASTR_RacerPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	UpdateOffTrackState(DeltaTime);
+
+	float EffectiveAccelerationRate = AccelerationRate;
+	float EffectiveBrakingDeceleration = BrakingDeceleration;
+	float EffectiveCoastingDeceleration = CoastingDeceleration;
+	float EffectiveMaxSpeed = MaxSpeed + ActiveBoostBonusSpeed;
+	float ExtraOffTrackDeceleration = 0.f;
+
+	if (bOffTrackPenaltyActive)
+	{
+		EffectiveAccelerationRate *= OffTrackAccelerationMultiplier;
+		EffectiveMaxSpeed *= OffTrackMaxSpeedMultiplier;
+		EffectiveCoastingDeceleration += OffTrackExtraDeceleration;
+		EffectiveBrakingDeceleration += OffTrackExtraDeceleration * 0.5f;
+		ExtraOffTrackDeceleration = OffTrackExtraDeceleration;
+	}
 
 	// si drift actif, alors on reduit son temps restant
 	if (ActiveBoostTimer > 0.f)
@@ -86,7 +118,8 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 		if (bIsBraking && bFastEnoughToStartDrift && bHasSteerForDrift)
 		{
 			bIsDrifting = true;
-			DriftDirection = (CurrentSteeringInput > 0.f) ? 1 : -1; //droite = 1 , gauche = -1
+			DriftDirection = (CurrentSteeringInput > 0.f) ? 1 : -1; // droite = 1, gauche = -1
+			bDriftBoostStillValid = true;
 		}
 	}
 	else
@@ -105,31 +138,45 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 
 	if (bIsDrifting)
 	{
-		if (bIsAccelerating) //cas 1 : on drift + acceleration
+		if (bIsAccelerating) // cas 1 : drift + accel
 		{
-			CurrentSpeed += (AccelerationRate * DriftAccelMultiplier - DriftSpeedLossPerSecond) * DeltaTime;
+			CurrentSpeed += (
+				EffectiveAccelerationRate * DriftAccelMultiplier
+				- DriftSpeedLossPerSecond
+				- ExtraOffTrackDeceleration
+				) * DeltaTime;
 		}
-		else //cas 2 : on drift sans accel
+		else // cas 2 : drift sans accel
 		{
-			CurrentSpeed -= (CoastingDeceleration + DriftSpeedLossPerSecond) * DeltaTime;
+			CurrentSpeed -= (EffectiveCoastingDeceleration + DriftSpeedLossPerSecond) * DeltaTime;
 		}
 	}
-	else if (bIsBraking) //brake normal
+	else if (bIsBraking) // brake normal
 	{
-		CurrentSpeed -= BrakingDeceleration * DeltaTime;
+		CurrentSpeed -= EffectiveBrakingDeceleration * DeltaTime;
 	}
-	else if (bIsAccelerating) //accel normal
+	else if (bIsAccelerating) // accel normal
 	{
-		CurrentSpeed += AccelerationRate * DeltaTime;
+		CurrentSpeed += EffectiveAccelerationRate * DeltaTime;
 	}
-	else //aucune action de mouvement (deceleration)
+	else // aucune action de mouvement
 	{
-		CurrentSpeed -= CoastingDeceleration * DeltaTime;
+		CurrentSpeed -= EffectiveCoastingDeceleration * DeltaTime;
+	}
+
+	if (bIsDrifting && DriftDirection != 0)
+	{
+		const float SteeringAgainstDrift = CurrentSteeringInput * DriftDirection;
+
+		if (SteeringAgainstDrift < -DriftBoostInvalidationThreshold)
+		{
+			bDriftBoostStillValid = false;
+			DriftCharge = 0.f;
+		}
 	}
 
 
 	//gestion du steering a haute et basse vitesse
-	const float EffectiveMaxSpeed = MaxSpeed + ActiveBoostBonusSpeed;
 	CurrentSpeed = FMath::Clamp(CurrentSpeed, 0.f, EffectiveMaxSpeed);
 
 	const float SpeedRatio = FMath::Clamp(CurrentSpeed / MaxSpeed, 0.f, 1.f);
@@ -179,19 +226,31 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 			? GetActorForwardVector()
 			: MoveVelocity.GetSafeNormal();
 
-		if (CurrentSpeed > MinSpeedToTurn)
-		{
-			float DriftSteerInput = CurrentSteeringInput; //adapte le steering en drift
+		float EffectiveDriftSteerInput = 0.f;
 
-			if (FMath::Abs(DriftSteerInput) < 0.05f && DriftDirection != 0)
+		if (CurrentSpeed > MinSpeedToTurn && DriftDirection != 0)
+		{
+			// Base automatique du drift : il continue naturellement dans sa direction
+			EffectiveDriftSteerInput = DriftBaseAutoSteer * DriftDirection;
+
+			const float SteeringVsDrift = CurrentSteeringInput * DriftDirection;
+
+			if (SteeringVsDrift > 0.f)
 			{
-				DriftSteerInput = 0.25f * DriftDirection;
+				// Le joueur steer dans le même sens que le drift
+				EffectiveDriftSteerInput += CurrentSteeringInput * DriftSteerSameDirectionMultiplier;
+			}
+			else if (SteeringVsDrift < 0.f)
+			{
+				// Le joueur contre-steer : influence faible seulement
+				EffectiveDriftSteerInput += CurrentSteeringInput * DriftSteerOppositeDirectionMultiplier;
 			}
 
-			if (!FMath::IsNearlyZero(DriftSteerInput, 0.01f))
+			EffectiveDriftSteerInput = FMath::Clamp(EffectiveDriftSteerInput, -1.f, 1.f);
+
+			if (!FMath::IsNearlyZero(EffectiveDriftSteerInput, 0.01f))
 			{
-				//trajectoire
-				const float DriftYawDelta = DriftSteerInput * BaseTurnRate * DriftTurnRateMultiplier * DeltaTime;
+				const float DriftYawDelta = EffectiveDriftSteerInput * BaseTurnRate * DriftTurnRateMultiplier * DeltaTime;
 				TravelDir = TravelDir.RotateAngleAxis(DriftYawDelta, FVector::UpVector).GetSafeNormal();
 			}
 		}
@@ -237,9 +296,22 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 
 	float EffectiveBoostSteerInput = CurrentSteeringInput;
 
-	if (bIsDrifting && FMath::Abs(EffectiveBoostSteerInput) < 0.05f && DriftDirection != 0)
+	if (bIsDrifting && DriftDirection != 0)
 	{
-		EffectiveBoostSteerInput = 0.25f * DriftDirection;
+		EffectiveBoostSteerInput = DriftBaseAutoSteer * DriftDirection;
+
+		const float SteeringVsDrift = CurrentSteeringInput * DriftDirection;
+
+		if (SteeringVsDrift > 0.f)
+		{
+			EffectiveBoostSteerInput += CurrentSteeringInput * DriftSteerSameDirectionMultiplier;
+		}
+		else if (SteeringVsDrift < 0.f)
+		{
+			EffectiveBoostSteerInput += CurrentSteeringInput * DriftSteerOppositeDirectionMultiplier;
+		}
+
+		EffectiveBoostSteerInput = FMath::Clamp(EffectiveBoostSteerInput, -1.f, 1.f);
 	}
 
 	const bool bCorrectSteerDirection =
@@ -247,6 +319,7 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 
 	const bool bRealDriftForBoost =
 		bIsDrifting &&
+		bDriftBoostStillValid &&
 		CurrentSpeed >= MinBoostSpeed &&
 		FMath::Abs(EffectiveBoostSteerInput) >= MinBoostSteerInput &&
 		FMath::Abs(SignedSlipAngleDeg) >= MinBoostSlipAngleDeg &&
@@ -283,7 +356,7 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 
 	if (bWasDriftingLastFrame && !bIsDrifting)
 	{
-		if (DriftHeldTime >= MinChargeTimeForBoost)
+		if (bDriftBoostStillValid && DriftHeldTime >= MinChargeTimeForBoost)
 		{
 			if (DriftCharge >= LargeBoostCharge)
 			{
@@ -304,6 +377,7 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 
 		DriftCharge = 0.f;
 		DriftHeldTime = 0.f;
+		bDriftBoostStillValid = false;
 	}
 
 	bWasDriftingLastFrame = bIsDrifting;
@@ -318,6 +392,103 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 	{
 		CapsuleComp->ComponentVelocity = MoveVelocity;
 	}
+
+	UpdateSafeRecoveryPoint();
+}
+
+void ASTR_RacerPawn::UpdateOffTrackState(float DeltaTime)
+{
+	const bool bWasOffTrack = bIsOffTrack;
+	const bool bWasPenaltyActive = bOffTrackPenaltyActive;
+
+	if (!TrackSplineActor)
+	{
+		TrackSplineActor = Cast<ATrackSplineActor>(
+			UGameplayStatics::GetActorOfClass(GetWorld(), ATrackSplineActor::StaticClass())
+		);
+	}
+
+	if (!TrackSplineActor)
+	{
+		bIsOffTrack = false;
+		bOffTrackPenaltyActive = false;
+		OffTrackTime = 0.f;
+		return;
+	}
+
+	bIsOffTrack = !TrackSplineActor->IsLocationOnTrack(GetActorLocation(), OffTrackDetectionMargin);
+
+	if (bIsOffTrack)
+	{
+		OffTrackTime += DeltaTime;
+	}
+	else
+	{
+		OffTrackTime = 0.f;
+	}
+
+	bOffTrackPenaltyActive = bIsOffTrack && OffTrackTime >= OffTrackPenaltyDelay;
+
+	if (bIsOffTrack && OffTrackTime >= OffTrackTeleportDelay)
+	{
+		TeleportBackToTrack();
+		return;
+	}
+
+	if (bIsOffTrack != bWasOffTrack)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[OFF TRACK] %s -> %s"),
+			*GetName(),
+			bIsOffTrack ? TEXT("LEFT TRACK") : TEXT("BACK ON TRACK"));
+	}
+
+	if (bOffTrackPenaltyActive != bWasPenaltyActive)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[OFF TRACK PENALTY] %s -> %s"),
+			*GetName(),
+			bOffTrackPenaltyActive ? TEXT("ACTIVE") : TEXT("INACTIVE"));
+	}
+}
+
+void ASTR_RacerPawn::UpdateSafeRecoveryPoint()
+{
+	if (!TrackSplineActor)
+	{
+		return;
+	}
+
+	const float TrackHalfWidth = TrackSplineActor->GetTrackHalfWidthWorld();
+	if (TrackHalfWidth <= KINDA_SMALL_NUMBER)
+	{
+		return;
+	}
+
+	const float DistanceToCenter = TrackSplineActor->GetDistanceFromTrackCenter2D(GetActorLocation());
+
+	// On n'enregistre un point sûr que si le joueur est confortablement sur la piste,
+	// pas juste collé au bord.
+	const bool bComfortablyOnTrack = DistanceToCenter <= (TrackHalfWidth * SafeRecoveryTrackRatio);
+
+	if (!bComfortablyOnTrack)
+	{
+		return;
+	}
+
+	bHasSafeRecoveryPoint = true;
+	LastSafeLocation = GetActorLocation();
+
+	FVector SafeForward = MoveVelocity.GetSafeNormal2D();
+	if (SafeForward.IsNearlyZero())
+	{
+		SafeForward = GetActorForwardVector().GetSafeNormal2D();
+	}
+	if (SafeForward.IsNearlyZero())
+	{
+		SafeForward = FVector::ForwardVector;
+	}
+
+	LastSafeForward = SafeForward;
+	LastSafeSpeed = CurrentSpeed;
 }
 
 void ASTR_RacerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -517,4 +688,74 @@ void ASTR_RacerPawn::TriggerItemUse()
 bool ASTR_RacerPawn::HasBuff() const
 {
 	return BuffComponent && BuffComponent->CurrentBuff != nullptr;
+}
+
+void ASTR_RacerPawn::TeleportBackToTrack()
+{
+	if (!bHasSafeRecoveryPoint)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[OFF TRACK] %s has no safe recovery point"), *GetName());
+		return;
+	}
+
+	FVector SafeForward = LastSafeForward.GetSafeNormal2D();
+	if (SafeForward.IsNearlyZero())
+	{
+		SafeForward = GetActorForwardVector().GetSafeNormal2D();
+	}
+
+	if (SafeForward.IsNearlyZero())
+	{
+		SafeForward = FVector::ForwardVector;
+	}
+
+	const FVector NewLocation = LastSafeLocation + FVector(0.f, 0.f, RecoveryHeightOffset);
+	const FRotator NewRotation = SafeForward.Rotation();
+
+	SetActorLocationAndRotation(
+		NewLocation,
+		NewRotation,
+		false,
+		nullptr,
+		ETeleportType::TeleportPhysics
+	);
+
+	// Reset état drift / boost
+	bIsDrifting = false;
+	DriftDirection = 0;
+	CurrentDriftAngle = 0.f;
+	DriftCharge = 0.f;
+	DriftHeldTime = 0.f;
+	bWasDriftingLastFrame = false;
+	bDriftBoostStillValid = false;
+
+	ActiveBoostTimer = 0.f;
+	ActiveBoostBonusSpeed = 0.f;
+
+	// Remet une vitesse propre
+	CurrentSpeed = FMath::Min(LastSafeSpeed, RecoverySpeedAfterTeleport);
+	if (CurrentSpeed < 200.f)
+	{
+		CurrentSpeed = 200.f;
+	}
+
+	MoveVelocity = SafeForward * CurrentSpeed;
+	LastTravelDir = SafeForward;
+
+	// Reset état off-track
+	bIsOffTrack = false;
+	bOffTrackPenaltyActive = false;
+	OffTrackTime = 0.f;
+
+	UE_LOG(LogTemp, Warning, TEXT("[OFF TRACK] %s teleported back to LAST SAFE POINT"), *GetName());
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(
+			-1,
+			2.0f,
+			FColor::Orange,
+			FString::Printf(TEXT("%s was returned to the track"), *GetName())
+		);
+	}
 }

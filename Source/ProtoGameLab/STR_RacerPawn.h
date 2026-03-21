@@ -14,6 +14,7 @@ class UInputAction;
 class UPaperSpriteComponent;
 class UPaperSprite;
 class UBuffComponent;
+class ATrackSplineActor;
 
 UCLASS()
 class PROTOGAMELAB_API ASTR_RacerPawn : public APawn
@@ -26,6 +27,7 @@ public:
 protected:
 	virtual void PossessedBy(AController* NewController) override;
 	virtual void UnPossessed() override;
+	virtual void BeginPlay() override;
 
 public:
 	virtual void Tick(float DeltaTime) override;
@@ -59,7 +61,7 @@ public:
 	UInputAction* AccelerateAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float MaxSpeed = 1185.0f;
+	float MaxSpeed = 1245.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float AccelerationRate = 400.0f;
@@ -109,6 +111,27 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "AI")
 	bool HasBuff() const;
+
+	UFUNCTION(BlueprintPure, Category = "UI|Drift")
+	bool IsDrifting() const { return bIsDrifting; }
+
+	UFUNCTION(BlueprintPure, Category = "UI|Drift")
+	float GetDriftCharge() const { return DriftCharge; }
+
+	UFUNCTION(BlueprintPure, Category = "UI|Drift")
+	float GetDriftChargeNormalized() const
+	{
+		return FMath::Clamp(DriftCharge / 100.f, 0.f, 1.f);
+	}
+
+	UFUNCTION(BlueprintPure, Category = "UI|Drift")
+	bool IsDriftBoostActive() const { return ActiveBoostTimer > 0.f; }
+
+	UFUNCTION(BlueprintPure, Category = "Track|OffTrack")
+	bool IsOffTrack() const { return bIsOffTrack; }
+
+	UFUNCTION(BlueprintPure, Category = "Track|OffTrack")
+	bool IsOffTrackPenaltyActive() const { return bOffTrackPenaltyActive; }
 
 protected:
 	float CurrentSpeed = 0.f;
@@ -166,6 +189,15 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
 	float DriftTurnRateMultiplier = 9.5f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
+	float DriftBaseAutoSteer = 0.25f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
+	float DriftSteerSameDirectionMultiplier = 0.20f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
+	float DriftSteerOppositeDirectionMultiplier = 0.05f;
 
 	int32 DriftDirection = 0;
 
@@ -243,6 +275,70 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mouvement|Drift")
 	bool bAllowDrift = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
+	float DriftBoostInvalidationThreshold = 0.1f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|DriftBoost")
+	bool bDriftBoostStillValid = false;
+
+	//Detection offtrack
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|OffTrack")
+	bool bIsOffTrack = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|OffTrack")
+	bool bOffTrackPenaltyActive = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|OffTrack")
+	float OffTrackTime = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
+	float OffTrackDetectionMargin = 35.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
+	float OffTrackPenaltyDelay = 0.25f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
+	float OffTrackMaxSpeedMultiplier = 0.55f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
+	float OffTrackAccelerationMultiplier = 0.35f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
+	float OffTrackExtraDeceleration = 250.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
+	float OffTrackTeleportDelay = 10.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
+	float RecoveryHeightOffset = 15.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
+	float RecoverySpeedAfterTeleport = 350.f;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Track|OffTrack")
+	TObjectPtr<ATrackSplineActor> TrackSplineActor = nullptr;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|Recovery")
+	bool bHasSafeRecoveryPoint = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|Recovery")
+	FVector LastSafeLocation = FVector::ZeroVector;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|Recovery")
+	FVector LastSafeForward = FVector::ForwardVector;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|Recovery")
+	float LastSafeSpeed = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|Recovery")
+	float SafeRecoveryTrackRatio = 0.72f;
+
+	void UpdateSafeRecoveryPoint();
+
+	void UpdateOffTrackState(float DeltaTime);
+
+	void TeleportBackToTrack();
 
 	float GetSignedSlipAngleDegrees() const;
 	float GetTravelYawRateDegrees(float DeltaTime, const FVector& CurrentTravelDir) const;

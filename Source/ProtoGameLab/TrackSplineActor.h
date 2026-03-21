@@ -8,6 +8,7 @@
 class USplineComponent;
 class USplineMeshComponent;
 class UStaticMesh;
+class UMaterialInterface;
 
 UCLASS()
 class PROTOGAMELAB_API ATrackSplineActor : public AActor
@@ -59,6 +60,15 @@ public:
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
+
+	UFUNCTION(BlueprintCallable, Category = "Track|Query")
+	float GetTrackHalfWidthWorld() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Track|Query")
+	float GetDistanceFromTrackCenter2D(const FVector& WorldLocation) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Track|Query")
+	bool IsLocationOnTrack(const FVector& WorldLocation, float ExtraMargin = 0.f) const;
 
 protected:
 	virtual void BeginPlay() override;
