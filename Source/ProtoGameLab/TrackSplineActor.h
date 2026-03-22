@@ -70,6 +70,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Track|Query")
 	bool IsLocationOnTrack(const FVector& WorldLocation, float ExtraMargin = 0.f) const;
 
+    UFUNCTION(BlueprintCallable, Category = "Track|Query")
+	float GetClosestDistanceAlongSpline(const FVector& WorldLocation) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Track|Query")
+	FVector GetTrackForwardDirectionAtWorldLocation(const FVector& WorldLocation) const;
+
 protected:
 	virtual void BeginPlay() override;
 

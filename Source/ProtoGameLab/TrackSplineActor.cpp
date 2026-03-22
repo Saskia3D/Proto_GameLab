@@ -159,3 +159,32 @@ bool ATrackSplineActor::IsLocationOnTrack(const FVector& WorldLocation, float Ex
 	const float DistanceToCenter = GetDistanceFromTrackCenter2D(WorldLocation);
 	return DistanceToCenter <= (HalfWidth + ExtraMargin);
 }
+
+float ATrackSplineActor::GetClosestDistanceAlongSpline(const FVector& WorldLocation) const
+{
+	if (!Spline) return 0.f;
+
+	const FVector ClosestLocation = Spline->FindLocationClosestToWorldLocation(
+		WorldLocation,
+		ESplineCoordinateSpace::World
+	);
+
+	return Spline->GetDistanceAlongSplineAtLocation(
+		ClosestLocation,
+		ESplineCoordinateSpace::World
+	);
+}
+
+FVector ATrackSplineActor::GetTrackForwardDirectionAtWorldLocation(const FVector& WorldLocation) const
+{
+	if (!Spline) return FVector::ForwardVector;
+
+	const float DistanceAlongSpline = GetClosestDistanceAlongSpline(WorldLocation);
+
+	const FVector TrackDirection = Spline->GetDirectionAtDistanceAlongSpline(
+		DistanceAlongSpline,
+		ESplineCoordinateSpace::World
+	);
+
+	return TrackDirection.GetSafeNormal2D();
+}

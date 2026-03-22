@@ -165,6 +165,33 @@ public:
 		return TeleportFeedbackTimer > 0.f;
 	}
 
+	UFUNCTION(BlueprintPure, Category = "Track|WrongWay")
+	bool IsGoingWrongWay() const { return bIsGoingWrongWay; }
+
+	UFUNCTION(BlueprintPure, Category = "Track|WrongWay")
+	bool IsWrongWayWarningActive() const { return bWrongWayWarningActive; }
+
+	UFUNCTION(BlueprintPure, Category = "Track|WrongWay")
+	float GetWrongWayTime() const { return WrongWayTime; }
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|WrongWay")
+	bool bIsGoingWrongWay = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|WrongWay")
+	bool bWrongWayWarningActive = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|WrongWay")
+	float WrongWayTime = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|WrongWay")
+	float WrongWayDetectionDelay = 0.6f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|WrongWay")
+	float WrongWayMinSpeed = 250.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|WrongWay")
+	float WrongWayDotThreshold = -0.35f;
+
 protected:
 	float CurrentSpeed = 0.f;
 	float TargetSteeringInput = 0.f;
@@ -375,4 +402,6 @@ protected:
 	float GetSignedSlipAngleDegrees() const;
 	float GetTravelYawRateDegrees(float DeltaTime, const FVector& CurrentTravelDir) const;
 	void StartDriftBoost(float BonusSpeed, float Duration);
+
+	void UpdateWrongWayState(float DeltaTime);
 };

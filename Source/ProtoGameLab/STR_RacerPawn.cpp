@@ -72,6 +72,8 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 
 	UpdateOffTrackState(DeltaTime);
 
+	UpdateWrongWayState(DeltaTime);
+
 	float EffectiveAccelerationRate = AccelerationRate;
 	float EffectiveBrakingDeceleration = BrakingDeceleration;
 	float EffectiveCoastingDeceleration = CoastingDeceleration;
@@ -766,4 +768,78 @@ void ASTR_RacerPawn::TeleportBackToTrack()
 	}
 
 	TeleportFeedbackTimer = TeleportFeedbackDuration;
+}
+
+void ASTR_RacerPawn::UpdateWrongWayState(float DeltaTime)
+{
+	const bool bWasWrongWay = bIsGoingWrongWay;
+	const bool bWasWarningActive = bWrongWayWarningActive;
+
+	if (!TrackSplineActor)
+	{
+		TrackSplineActor = Cast<ATrackSplineActor>(
+			UGameplayStatics::GetActorOfClass(GetWorld(), ATrackSplineActor::StaticClass())
+		);
+	}
+
+	if (!TrackSplineActor)
+	{
+		bIsGoingWrongWay = false;
+		bWrongWayWarningActive = false;
+		WrongWayTime = 0.f;
+		return;
+	}
+
+	// on ne détecte pas le contre-sens quand le joueur est hors piste.
+	if (bIsOffTrack)
+	{
+		bIsGoingWrongWay = false;
+		bWrongWayWarningActive = false;
+		WrongWayTime = 0.f;
+		return;
+	}
+
+	// Si la voiture ne bouge presque pas, pas de warning.
+	if (CurrentSpeed < WrongWayMinSpeed || MoveVelocity.IsNearlyZero())
+	{
+		bIsGoingWrongWay = false;
+		bWrongWayWarningActive = false;
+		WrongWayTime = 0.f;
+		return;
+	}
+
+	const FVector TravelDirection = MoveVelocity.GetSafeNormal2D();
+	const FVector TrackDirection = TrackSplineActor->GetTrackForwardDirectionAtWorldLocation(GetActorLocation());
+
+	const float Dot = FVector::DotProduct(TravelDirection, TrackDirection);
+
+	// Dot proche de 1  -> bon sens
+	// Dot proche de -1 -> contre-sens
+	bIsGoingWrongWay = (Dot <= WrongWayDotThreshold);
+
+	if (bIsGoingWrongWay)
+	{
+		WrongWayTime += DeltaTime;
+	}
+	else
+	{
+		WrongWayTime = 0.f;
+	}
+
+	bWrongWayWarningActive = bIsGoingWrongWay && (WrongWayTime >= WrongWayDetectionDelay);
+
+	if (bIsGoingWrongWay != bWasWrongWay)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[WRONG WAY] %s -> %s (Dot=%.2f)"),
+			*GetName(),
+			bIsGoingWrongWay ? TEXT("DETECTED") : TEXT("CLEARED"),
+			Dot);
+	}
+
+	if (bWrongWayWarningActive != bWasWarningActive)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[WRONG WAY UI] %s -> %s"),
+			*GetName(),
+			bWrongWayWarningActive ? TEXT("SHOW WARNING") : TEXT("HIDE WARNING"));
+	}
 }
