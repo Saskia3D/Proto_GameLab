@@ -7,7 +7,9 @@
 
 ACamManager::ACamManager()
 {
-    PrimaryActorTick.bCanEverTick = true;
+    PrimaryActorTick.bCanEverTick = false;
+    /*
+    PrimaryActorTick.bCanEverTick = true; */
 
     USceneComponent* SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
     RootComponent = SceneRoot;
@@ -21,6 +23,36 @@ ACamManager::ACamManager()
     Camera->SetupAttachment(SpringArm);
 }
 
+void ACamManager::BeginPlay()
+{
+    Super::BeginPlay();
+
+    // Position fixe de la caméra
+    SetActorLocation(FVector(24190.f, -7530.f, 13800.f));
+
+    // Rotation top-down fixe
+    SetActorRotation(FRotator(-90.f, 10.f, 0.f));
+
+    FTimerHandle TimerHandle;
+    GetWorldTimerManager().SetTimer(TimerHandle, [this]()
+        {
+            APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
+            if (PC)
+            {
+                FViewTargetTransitionParams Params;
+                Params.BlendTime = 0.f;
+                PC->bAutoManageActiveCameraTarget = false;
+                PC->SetViewTarget(this, Params);
+            }
+        }, 0.5f, false);
+}
+
+void ACamManager::Tick(float DeltaTime)
+{
+    Super::Tick(DeltaTime);
+}
+
+/*
 void ACamManager::BeginPlay()
 {
     Super::BeginPlay();
@@ -57,8 +89,9 @@ void ACamManager::BeginPlay()
                 PC->SetViewTarget(this, Params);
             }
         }, 0.5f, false);
-}
+}*/
 
+/*
 void ACamManager::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
@@ -113,4 +146,4 @@ void ACamManager::Tick(float DeltaTime)
     // Always look at midpoint
     FRotator LookAtRotation = (Midpoint - NewLocation).Rotation();
     SetActorRotation(LookAtRotation);
-}
+}*/

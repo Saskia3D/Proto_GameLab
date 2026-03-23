@@ -184,7 +184,7 @@ public:
 	float WrongWayTime = 0.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|WrongWay")
-	float WrongWayDetectionDelay = 0.6f;
+	float WrongWayDetectionDelay = 1.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|WrongWay")
 	float WrongWayMinSpeed = 250.f;
