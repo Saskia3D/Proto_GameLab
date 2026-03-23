@@ -260,6 +260,9 @@ protected:
 
 	int32 DriftDirection = 0;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mouvement|DriftBoost")
+	int32 DriftChargeDirection = 0;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|DriftBoost")
 	float DriftCharge = 0.f;
 
@@ -306,31 +309,31 @@ protected:
 	float MinChargeTimeForBoost = 0.20f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
-	float SmallBoostCharge = 8.f;
+	float SmallBoostCharge = 10.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
-	float MediumBoostCharge = 20.f;
+	float MediumBoostCharge = 25.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
 	float LargeBoostCharge = 40.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
-	float SmallBoostBonusSpeed = 370.f;
+	float SmallBoostBonusSpeed = 300.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
-	float MediumBoostBonusSpeed = 575.f;
+	float MediumBoostBonusSpeed = 600.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
-	float LargeBoostBonusSpeed = 780.f;
+	float LargeBoostBonusSpeed = 900.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
-	float SmallBoostDuration = 0.75f;
+	float SmallBoostDuration = 0.70f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
-	float MediumBoostDuration = 1.f;
+	float MediumBoostDuration = 1.4f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
-	float LargeBoostDuration = 1.75f;
+	float LargeBoostDuration = 2.1f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mouvement|Drift")
 	bool bAllowDrift = true;

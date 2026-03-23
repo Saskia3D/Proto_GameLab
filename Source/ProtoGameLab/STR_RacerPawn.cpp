@@ -126,21 +126,40 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 		if (bIsBraking && bFastEnoughToStartDrift && bHasSteerForDrift)
 		{
 			bIsDrifting = true;
-			DriftDirection = (CurrentSteeringInput > 0.f) ? 1 : -1; // droite = 1, gauche = -1
+			DriftDirection = (CurrentSteeringInput > 0.f) ? 1 : -1;
+			DriftChargeDirection = DriftDirection;
 			bDriftBoostStillValid = true;
 		}
 	}
 	else
 	{
-		//gestion maintien du drift
-		const bool bHardCounterSteer =
-			(DriftDirection > 0 && CurrentSteeringInput < -DriftDirectionSwitchThreshold) ||
-			(DriftDirection < 0 && CurrentSteeringInput > DriftDirectionSwitchThreshold);
-
-		if (!bIsBraking || !bFastEnoughToKeepDrift || bHardCounterSteer)
+		// Le drift continue tant que le bouton drift est maintenu
+		// et que la vitesse reste suffisante
+		if (!bIsBraking || !bFastEnoughToKeepDrift)
 		{
 			bIsDrifting = false;
 			DriftDirection = 0;
+			DriftChargeDirection = 0;
+		}
+	}
+
+	if (bIsDrifting)
+	{
+		const int32 NewSteerDirection =
+			(CurrentSteeringInput > DriftDirectionSwitchThreshold) ? 1 :
+			(CurrentSteeringInput < -DriftDirectionSwitchThreshold) ? -1 : 0;
+
+		if (NewSteerDirection != 0 && DriftChargeDirection != 0 && NewSteerDirection != DriftChargeDirection)
+		{
+			// Le joueur repart franchement dans l'autre direction :
+			// on reset la charge et on recommence dans ce nouveau sens.
+			DriftCharge = 0.f;
+			DriftHeldTime = 0.f;
+			DriftChargeDirection = NewSteerDirection;
+			DriftDirection = NewSteerDirection;
+			bDriftBoostStillValid = true;
+
+			UE_LOG(LogTemp, Warning, TEXT("[DRIFT] Charge direction switched -> reset"));
 		}
 	}
 
@@ -170,17 +189,6 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 	else // aucune action de mouvement
 	{
 		CurrentSpeed -= EffectiveCoastingDeceleration * DeltaTime;
-	}
-
-	if (bIsDrifting && DriftDirection != 0)
-	{
-		const float SteeringAgainstDrift = CurrentSteeringInput * DriftDirection;
-
-		if (SteeringAgainstDrift < -DriftBoostInvalidationThreshold)
-		{
-			bDriftBoostStillValid = false;
-			DriftCharge = 0.f;
-		}
 	}
 
 
@@ -323,7 +331,7 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 	}
 
 	const bool bCorrectSteerDirection =
-		(DriftDirection == 0) || (FMath::Sign(EffectiveBoostSteerInput) == DriftDirection);
+		(DriftChargeDirection == 0) || (FMath::Sign(EffectiveBoostSteerInput) == DriftChargeDirection);
 
 	const bool bRealDriftForBoost =
 		bIsDrifting &&
@@ -386,6 +394,7 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 		DriftCharge = 0.f;
 		DriftHeldTime = 0.f;
 		bDriftBoostStillValid = false;
+		DriftChargeDirection = 0;
 	}
 
 	bWasDriftingLastFrame = bIsDrifting;
@@ -733,6 +742,7 @@ void ASTR_RacerPawn::TeleportBackToTrack()
 	DriftDirection = 0;
 	CurrentDriftAngle = 0.f;
 	DriftCharge = 0.f;
+	DriftChargeDirection = 0;
 	DriftHeldTime = 0.f;
 	bWasDriftingLastFrame = false;
 	bDriftBoostStillValid = false;
