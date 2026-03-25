@@ -51,8 +51,8 @@ void ARacerAIController::Tick(float DeltaSeconds)
 		RecoveryTimeRemaining -= DeltaSeconds;
 
 		Racer->SetSteeringInput(static_cast<float>(RecoverySteerSign));
-		Racer->SetAcceleratingState(true);
-		Racer->SetBrakingState(false);
+		Racer->SetAutoDriveEnabled(true);
+		Racer->SetDriftButtonHeld(false);
 
 		if (RecoveryTimeRemaining <= 0.f)
 		{
@@ -113,8 +113,8 @@ void ARacerAIController::UpdateDriving(ASTR_RacerPawn* Racer, float DeltaSeconds
 	const bool bVerySharpTurn = AbsAngleDeg >= StrongBrakeAngleDeg;
 
 	Racer->SetSteeringInput(SteerValue);
-	Racer->SetBrakingState(bBrakeForTurn);
-	Racer->SetAcceleratingState(!bVerySharpTurn);
+	Racer->SetDriftButtonHeld(bBrakeForTurn);
+	Racer->SetAutoDriveEnabled(!bVerySharpTurn);
 
 	UpdateItemUsage(Racer, AbsAngleDeg);
 

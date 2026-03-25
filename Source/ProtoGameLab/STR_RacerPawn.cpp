@@ -123,7 +123,7 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 	//entree en drift
 	if (bAllowDrift && !bIsDrifting)
 	{
-		if (bIsBraking && bFastEnoughToStartDrift && bHasSteerForDrift)
+		if (bIsDriftButtonHeld && bFastEnoughToStartDrift && bHasSteerForDrift)
 		{
 			bIsDrifting = true;
 			DriftDirection = (CurrentSteeringInput > 0.f) ? 1 : -1;
@@ -135,7 +135,7 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 	{
 		// Le drift continue tant que le bouton drift est maintenu
 		// et que la vitesse reste suffisante
-		if (!bIsBraking || !bFastEnoughToKeepDrift)
+		if (!bIsDriftButtonHeld || !bFastEnoughToKeepDrift)
 		{
 			bIsDrifting = false;
 			DriftDirection = 0;
@@ -163,9 +163,11 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 		}
 	}
 
+	const bool bShouldAutoAccelerate = bAutoDriveEnabled;
+
 	if (bIsDrifting)
 	{
-		if (bIsAccelerating) // cas 1 : drift + accel
+		if (bShouldAutoAccelerate)
 		{
 			CurrentSpeed += (
 				EffectiveAccelerationRate * DriftAccelMultiplier
@@ -173,24 +175,19 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 				- ExtraOffTrackDeceleration
 				) * DeltaTime;
 		}
-		else // cas 2 : drift sans accel
+		else
 		{
 			CurrentSpeed -= (EffectiveCoastingDeceleration + DriftSpeedLossPerSecond) * DeltaTime;
 		}
 	}
-	else if (bIsBraking) // brake normal
-	{
-		CurrentSpeed -= EffectiveBrakingDeceleration * DeltaTime;
-	}
-	else if (bIsAccelerating) // accel normal
+	else if (bShouldAutoAccelerate)
 	{
 		CurrentSpeed += EffectiveAccelerationRate * DeltaTime;
 	}
-	else // aucune action de mouvement
+	else
 	{
 		CurrentSpeed -= EffectiveCoastingDeceleration * DeltaTime;
 	}
-
 
 	//gestion du steering a haute et basse vitesse
 	CurrentSpeed = FMath::Clamp(CurrentSpeed, 0.f, EffectiveMaxSpeed);
@@ -330,8 +327,11 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 		EffectiveBoostSteerInput = FMath::Clamp(EffectiveBoostSteerInput, -1.f, 1.f);
 	}
 
+	const bool bNeutralBoostSteer = FMath::IsNearlyZero(EffectiveBoostSteerInput, 0.01f);
 	const bool bCorrectSteerDirection =
-		(DriftChargeDirection == 0) || (FMath::Sign(EffectiveBoostSteerInput) == DriftChargeDirection);
+		bNeutralBoostSteer ||
+		(DriftChargeDirection == 0) ||
+		(FMath::Sign(EffectiveBoostSteerInput) == DriftChargeDirection);
 
 	const bool bRealDriftForBoost =
 		bIsDrifting &&
@@ -521,18 +521,11 @@ void ASTR_RacerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 			EnhancedInputComponent->BindAction(SteerAction, ETriggerEvent::Canceled, this, &ASTR_RacerPawn::Steer);
 		}
 
-		if (AccelerateAction)
-		{
-			EnhancedInputComponent->BindAction(AccelerateAction, ETriggerEvent::Started, this, &ASTR_RacerPawn::StartAccelerate);
-			EnhancedInputComponent->BindAction(AccelerateAction, ETriggerEvent::Completed, this, &ASTR_RacerPawn::StopAccelerate);
-			EnhancedInputComponent->BindAction(AccelerateAction, ETriggerEvent::Canceled, this, &ASTR_RacerPawn::StopAccelerate);
-		}
-
 		if (BrakeAction)
 		{
-			EnhancedInputComponent->BindAction(BrakeAction, ETriggerEvent::Started, this, &ASTR_RacerPawn::StartBrake);
-			EnhancedInputComponent->BindAction(BrakeAction, ETriggerEvent::Completed, this, &ASTR_RacerPawn::StopBrake);
-			EnhancedInputComponent->BindAction(BrakeAction, ETriggerEvent::Canceled, this, &ASTR_RacerPawn::StopBrake);
+			EnhancedInputComponent->BindAction(BrakeAction, ETriggerEvent::Started, this, &ASTR_RacerPawn::StartDrift);
+			EnhancedInputComponent->BindAction(BrakeAction, ETriggerEvent::Completed, this, &ASTR_RacerPawn::StopDrift);
+			EnhancedInputComponent->BindAction(BrakeAction, ETriggerEvent::Canceled, this, &ASTR_RacerPawn::StopDrift);
 		}
 
 		if (ItemAction)
@@ -553,14 +546,14 @@ void ASTR_RacerPawn::Steer(const FInputActionValue& Value)
 	}
 }
 
-void ASTR_RacerPawn::StartBrake(const FInputActionValue& Value)
+void ASTR_RacerPawn::StartDrift(const FInputActionValue& Value)
 {
-	bIsBraking = true;
+	bIsDriftButtonHeld = true;
 }
 
-void ASTR_RacerPawn::StopBrake(const FInputActionValue& Value)
+void ASTR_RacerPawn::StopDrift(const FInputActionValue& Value)
 {
-	bIsBraking = false;
+	bIsDriftButtonHeld = false;
 }
 
 void ASTR_RacerPawn::UseItem(const FInputActionValue& Value)
@@ -655,16 +648,6 @@ void ASTR_RacerPawn::StartDriftBoost(float BonusSpeed, float Duration)
 	CurrentSpeed = FMath::Min(CurrentSpeed + BonusSpeed, MaxSpeed + BonusSpeed);
 }
 
-void ASTR_RacerPawn::StartAccelerate(const FInputActionValue& Value)
-{
-	bIsAccelerating = true;
-}
-
-void ASTR_RacerPawn::StopAccelerate(const FInputActionValue& Value)
-{
-	bIsAccelerating = false;
-}
-
 void ASTR_RacerPawn::SetSteeringInput(float InSteer)
 {
 	TargetSteeringInput = FMath::Clamp(InSteer, -1.0f, 1.0f);
@@ -675,21 +658,20 @@ void ASTR_RacerPawn::SetSteeringInput(float InSteer)
 	}
 }
 
-void ASTR_RacerPawn::SetAcceleratingState(bool bShouldAccelerate)
+void ASTR_RacerPawn::SetAutoDriveEnabled(bool bShouldAutoDrive)
 {
-	bIsAccelerating = bShouldAccelerate;
+	bAutoDriveEnabled = bShouldAutoDrive;
 }
 
-void ASTR_RacerPawn::SetBrakingState(bool bShouldBrake)
+void ASTR_RacerPawn::SetDriftButtonHeld(bool bShouldHoldDrift)
 {
-	bIsBraking = bShouldBrake;
+	bIsDriftButtonHeld = bShouldHoldDrift;
 }
 
 void ASTR_RacerPawn::ClearDrivingInputs()
 {
 	TargetSteeringInput = 0.f;
-	bIsAccelerating = false;
-	bIsBraking = false;
+	bIsDriftButtonHeld = false;
 }
 
 void ASTR_RacerPawn::TriggerItemUse()

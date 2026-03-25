@@ -57,8 +57,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* ItemAction;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	UInputAction* AccelerateAction;
+	/*UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* AccelerateAction; */
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float MaxSpeed = 1245.0f;
@@ -104,10 +104,10 @@ public:
 	void SetSteeringInput(float InSteer);
 
 	UFUNCTION(BlueprintCallable, Category = "AI")
-	void SetAcceleratingState(bool bShouldAccelerate);
+	void SetAutoDriveEnabled(bool bShouldAutoDrive);
 
 	UFUNCTION(BlueprintCallable, Category = "AI")
-	void SetBrakingState(bool bShouldBrake);
+	void SetDriftButtonHeld(bool bShouldHoldDrift);
 
 	UFUNCTION(BlueprintCallable, Category = "AI")
 	void ClearDrivingInputs();
@@ -197,15 +197,16 @@ protected:
 	float TargetSteeringInput = 0.f;
 	float CurrentSteeringInput = 0.f;
 
-	bool bIsBraking = false;
-	bool bIsAccelerating = false;
+	bool bIsDriftButtonHeld = false;
+	bool bAutoDriveEnabled = true;
 
 	void Steer(const FInputActionValue& Value);
-	void StartBrake(const FInputActionValue& Value);
-	void StopBrake(const FInputActionValue& Value);
+	void StartDrift(const FInputActionValue& Value);
+	void StopDrift(const FInputActionValue& Value);
 	void UseItem(const FInputActionValue& Value);
+	/*
 	void StartAccelerate(const FInputActionValue& Value);
-	void StopAccelerate(const FInputActionValue& Value);
+	void StopAccelerate(const FInputActionValue& Value); */
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|Drift")
 	bool bIsDrifting = false;
