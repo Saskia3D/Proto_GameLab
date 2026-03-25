@@ -1,8 +1,8 @@
-/* 
+/*
 * RaceGameMode.h - Déclaration de la classe ARaceGameMode, qui gère la logique d'une course dans Unreal Engine.
 *   Ce fichier définit une classe de mode de jeu pour une course dans Unreal Engine.
 *  Il inclut des énumérations pour l'état de la course, une structure pour enregistrer les joueurs qui ont terminé la course et leur temps,
-*  ainsi que des fonctions pour démarrer la course, notifier quand un joueur termine, obtenir l'état de la course, le temps de la course, 
+*  ainsi que des fonctions pour démarrer la course, notifier quand un joueur termine, obtenir l'état de la course, le temps de la course,
 *  l'ordre d'arrivée et le gagnant.La classe hérite de AGameModeBase et utilise des macros Unreal pour l'intégration avec le moteur.
 */
 
@@ -11,6 +11,8 @@
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
 #include "RaceGameMode.generated.h"
+
+class ATrackSplineActor;
 
 // Énumération pour représenter l'état de la course
 UENUM(BlueprintType)
@@ -26,7 +28,7 @@ USTRUCT(BlueprintType)
 struct FRaceFinishEntry
 {
 	GENERATED_BODY()
-	
+
 	UPROPERTY(BlueprintReadOnly)
 	TObjectPtr<AActor> PlayerActor = nullptr; // Le joueur qui a terminé la course
 
@@ -43,20 +45,31 @@ struct FPlayerRaceProgress
 {
 	GENERATED_BODY()
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Race")
 	int32 Lap = 0; // Le tour actuel du joueur
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Race")
 	int32 LastCheckpoint = -1; // L'index du dernier checkpoint que le joueur a franchi, initialisé à -1 pour indiquer qu'il n'a pas encore franchi de checkpoint
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Race")
 	float DistanceToNext = 999999999999.f; // La distance actuelle du joueur au prochain checkpoint, utilisée pour déterminer la position relative des joueurs dans la course, initialisée à une valeur très élevée pour indiquer que le joueur n'est pas encore proche du prochain checkpoint
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Race")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Race")
+	float SplineDistance = 0.f; //distance projetee du joueur (tie break)
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Race")
+	float SplineAlpha = 0.f; //utils UI
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Race")
 	int32 Score = 0; //Score total du joueur
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Race")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Race")
 	int32 CheckpointsPassedCount = 0; //Nombre de checkpoints passes
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Race")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Race")
 	int32 LapsCompletedCount = 0; //Nombre de tours completes
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Race")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Race")
 	bool bFinishedRace = false;
 };
 
@@ -85,8 +98,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Race")
 	void UpdatePositions(); // Met à jour les positions des joueurs dans la course en fonction de leur progression et de leur distance au prochain checkpoint
 
-	UFUNCTION(BlueprintCallable, Category="Race")
-    void NotifyLapCompleted(AController* Controller, int32 NewLapNumber);
+	UFUNCTION(BlueprintCallable, Category = "Race")
+	void NotifyLapCompleted(AController* Controller, int32 NewLapNumber);
 
 	UFUNCTION(BlueprintCallable, Category = "Race")
 	AActor* GetWinner() const; // Obtenir le gagnant de la course
@@ -98,17 +111,35 @@ public:
 	float GetRaceTimeSeconds() const;
 
 	//Getters utiles pour systeme pointage
-	UFUNCTION(BlueprintCallable, Category="Race|Score")
+	UFUNCTION(BlueprintCallable, Category = "Race|Score")
 	int32 GetPlayerScore(AController* Controller) const;
 
-	UFUNCTION(BlueprintCallable, Category="Race|Score")
+	UFUNCTION(BlueprintCallable, Category = "Race|Score")
 	int32 GetPlayerCheckpointCount(AController* Controller) const;
 
-	UFUNCTION(BlueprintCallable, Category="Race|Score")
+	UFUNCTION(BlueprintCallable, Category = "Race|Score")
 	int32 GetPlayerLapCount(AController* Controller) const;
 
-	UFUNCTION(BlueprintCallable, Category="Race")
+	UFUNCTION(BlueprintCallable, Category = "Race")
 	bool IsControllerFinished(AController* Controller) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Race|Position")
+	int32 GetPlayerRacePosition(AController* Controller) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Race|Position")
+	AController* GetCurrentLeader() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Race|Position")
+	bool IsControllerAheadOf(AController* A, AController* B) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Race|UI")
+	int32 GetDisplayedLapForController(AController* Controller) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Race|UI")
+	int32 GetRaceTotalLaps() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Race|UI")
+	bool HasControllerFinishedRace(AController* Controller) const;
 
 	const FPlayerRaceProgress* GetPlayerProgress(AController* Controller) const; //Recupere toute la progression
 
@@ -123,16 +154,16 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Race")
 	TSubclassOf<ATrackManager> TrackManagerClass;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Race|Score")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Race|Score")
 	int32 PointsPerCheckpoint = 100; //Nombre de points par checkpoint passe
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Race|Score")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Race|Score")
 	int32 PointsPerLap = 500; //Nombre de points par tour complete
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Race|End")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Race|End")
 	bool bUseFinishCountdown = true;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Race|End")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Race|End")
 	float FinishCountdownSeconds = 15.f;
 
 private:
@@ -150,6 +181,15 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Race|Camera")
 	int32 NumPlayersToFinish = 2; // Le nombre de joueurs qui doivent terminer la course avant de la considérer comme terminée
+
+	UPROPERTY(EditAnywhere, Category = "Race")
+	TObjectPtr<ATrackSplineActor> TrackSplineActor = nullptr;
+
+	void RefreshControllerProgress(AController* Controller);
+	void RefreshAllPlayerProgress();
+	float ComputeSplineDistance(APawn* Pawn) const;
+	float ComputeSplineAlpha(APawn* Pawn) const;
+	TArray<AController*> GetRaceControllers() const;
 
 	double StartTimeSeconds = 0.0; // Le temps auquel la course a commencé, en secondes
 	void FreezeFinishedPlayer(AActor* PlayerActor); // Gèle le joueur qui a terminé la course pour éviter qu'il puisse continuer à jouer après avoir fini

@@ -19,7 +19,7 @@ struct FLapData
 
 	int32 LapNumber = 0; // Le numéro du tour
 	float LastCrossTime = -99999999.f; // Le temps auquel le joueur a franchi la ligne d'arrivée pour ce tour, initialisé à une valeur très basse pour indiquer que le joueur n'a pas encore franchi la ligne d'arrivée pour ce tour
-	bool bArmed = true;
+	bool bArmed = false;
 };
 
 UCLASS()

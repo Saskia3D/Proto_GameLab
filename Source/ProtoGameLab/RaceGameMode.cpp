@@ -8,6 +8,9 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "Components/PrimitiveComponent.h"
+#include "TrackSplineActor.h"
+#include "Components/SplineComponent.h"
+#include "FinishLine.h"
 #include "TimerManager.h"
 
 ARaceGameMode::ARaceGameMode()
@@ -24,6 +27,20 @@ void ARaceGameMode::BeginPlay()
 			UGameplayStatics::GetActorOfClass(GetWorld(), ATrackManager::StaticClass())
 		);
 	}
+
+	if (!TrackSplineActor)
+	{
+		TrackSplineActor = Cast<ATrackSplineActor>(
+			UGameplayStatics::GetActorOfClass(GetWorld(), ATrackSplineActor::StaticClass())
+		);
+	}
+
+	if (!TrackSplineActor)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[RACE] No TrackSplineActor found in level"));
+	}
+
+	RefreshAllPlayerProgress();
 
 	if (!TrackManager && TrackManagerClass)
 	{
@@ -250,7 +267,13 @@ void ARaceGameMode::NotifyCheckpointPassed(APawn* PlayerPawn, int32 CheckpointIn
 	Progress.LastCheckpoint = CheckpointIndex;
 	Progress.CheckpointsPassedCount++;
 	Progress.Score += PointsPerCheckpoint;
-	Progress.DistanceToNext = ComputeDistanceToNextCheckpoint(PlayerPawn, Progress.LastCheckpoint);
+
+	if (APawn* Pawn = Controller->GetPawn())
+	{
+		Progress.DistanceToNext = ComputeDistanceToNextCheckpoint(Pawn, Progress.LastCheckpoint);
+		Progress.SplineDistance = ComputeSplineDistance(Pawn);
+		Progress.SplineAlpha = ComputeSplineAlpha(Pawn);
+	}
 
 	UE_LOG(LogTemp, Warning,
 		TEXT("[SCORE] %s earned %d checkpoint points | TotalScore=%d | TotalCP=%d"),
@@ -293,62 +316,61 @@ int32 ARaceGameMode::CompareControllers(AController* A, AController* B) const
 	const FPlayerRaceProgress* ProgressA = ProgressByController.Find(A);
 	const FPlayerRaceProgress* ProgressB = ProgressByController.Find(B);
 
-	if (!ProgressA || !ProgressB) return 0;
+	if (!ProgressA || !ProgressB)
+	{
+		return 0;
+	}
 
-	// Un joueur fini est toujours devant un joueur non fini
+	// 1) joueur fini est toujours devant
 	if (ProgressA->bFinishedRace != ProgressB->bFinishedRace)
 	{
 		return ProgressA->bFinishedRace ? 1 : -1;
 	}
 
-	if (ProgressA->Lap != ProgressB->Lap) return (ProgressA->Lap > ProgressB->Lap) ? 1 : -1;
-	if (ProgressA->LastCheckpoint != ProgressB->LastCheckpoint) return (ProgressA->LastCheckpoint > ProgressB->LastCheckpoint) ? 1 : -1;
-	if (ProgressA->DistanceToNext != ProgressB->DistanceToNext) return (ProgressA->DistanceToNext < ProgressB->DistanceToNext) ? 1 : -1;
+	// 2) le lap reste le critère principal
+	if (ProgressA->Lap != ProgressB->Lap)
+	{
+		return (ProgressA->Lap > ProgressB->Lap) ? 1 : -1;
+	}
+
+	// 3) le dernier checkpoint validé
+	if (ProgressA->LastCheckpoint != ProgressB->LastCheckpoint)
+	{
+		return (ProgressA->LastCheckpoint > ProgressB->LastCheckpoint) ? 1 : -1;
+	}
+
+	// 4) la progression spline locale sur le segment courant
+	if (!FMath::IsNearlyEqual(ProgressA->SplineDistance, ProgressB->SplineDistance, 1.0f))
+	{
+		return (ProgressA->SplineDistance > ProgressB->SplineDistance) ? 1 : -1;
+	}
+
+	// 5) Fallback
+	if (!FMath::IsNearlyEqual(ProgressA->DistanceToNext, ProgressB->DistanceToNext, 1.0f))
+	{
+		return (ProgressA->DistanceToNext < ProgressB->DistanceToNext) ? 1 : -1;
+	}
 
 	return 0;
 }
 
 void ARaceGameMode::UpdatePositions()
 {
-	UE_LOG(LogTemp, Warning, TEXT("UpdatePositions called"));
-	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Yellow, TEXT("UpdatePositions()"));
+	RefreshAllPlayerProgress();
 
-	TArray<AActor*> PlayerControllers;
-	UGameplayStatics::GetAllActorsOfClass(GetWorld(), APlayerController::StaticClass(), PlayerControllers);
-
-	UE_LOG(LogTemp, Warning, TEXT("Player count = %d"), PlayerControllers.Num());
-	if (GEngine)
+	const TArray<AController*> Controllers = GetRaceControllers();
+	if (Controllers.Num() < 2)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Yellow,
-			FString::Printf(TEXT("Player count = %d"), PlayerControllers.Num()));
+		return;
 	}
 
-	if (PlayerControllers.Num() < 2) return;
+	AController* ControllerA = Controllers[0];
+	AController* ControllerB = Controllers[1];
 
-	AController* ControllerA = Cast<AController>(PlayerControllers[0]);
-	AController* ControllerB = Cast<AController>(PlayerControllers[1]);
-
-	if (!ControllerA || !ControllerB) return;
-
-	if (APawn* P1 = ControllerA->GetPawn())
+	if (!ControllerA || !ControllerB)
 	{
-		FPlayerRaceProgress& ProgA = ProgressByController.FindOrAdd(ControllerA);
-		if (!ProgA.bFinishedRace)
-		{
-			ProgA.DistanceToNext = ComputeDistanceToNextCheckpoint(P1, ProgA.LastCheckpoint);
-		}
+		return;
 	}
-
-	if (APawn* P2 = ControllerB->GetPawn())
-	{
-		FPlayerRaceProgress& ProgB = ProgressByController.FindOrAdd(ControllerB);
-		if (!ProgB.bFinishedRace)
-		{
-			ProgB.DistanceToNext = ComputeDistanceToNextCheckpoint(P2, ProgB.LastCheckpoint);
-		}
-	}
-
-	const int32 Result = CompareControllers(ControllerA, ControllerB);
 
 	const FPlayerRaceProgress* ProgressA = ProgressByController.Find(ControllerA);
 	const FPlayerRaceProgress* ProgressB = ProgressByController.Find(ControllerB);
@@ -358,8 +380,13 @@ void ARaceGameMode::UpdatePositions()
 		return;
 	}
 
+	const int32 Result = CompareControllers(ControllerA, ControllerB);
+
 	const int32 CPCount = TrackManager->GetCheckpointCount();
-	if (CPCount <= 0) return;
+	if (CPCount <= 0)
+	{
+		return;
+	}
 
 	const int32 SafeCPA = FMath::Max(ProgressA->LastCheckpoint, 0);
 	const int32 SafeCPB = FMath::Max(ProgressB->LastCheckpoint, 0);
@@ -367,18 +394,26 @@ void ARaceGameMode::UpdatePositions()
 	const int32 ProgA = ProgressA->Lap * CPCount + SafeCPA;
 	const int32 ProgB = ProgressB->Lap * CPCount + SafeCPB;
 
-	AController* LeaderCtrl = (ProgA >= ProgB) ? ControllerA : ControllerB;
-	AController* TrailerCtrl = (ProgA >= ProgB) ? ControllerB : ControllerA;
+	AController* LeaderCtrl = (Result >= 0) ? ControllerA : ControllerB;
+	AController* TrailerCtrl = (Result >= 0) ? ControllerB : ControllerA;
 
-	const FPlayerRaceProgress* LeaderP = (ProgA >= ProgB) ? ProgressA : ProgressB;
-	const FPlayerRaceProgress* TrailerP = (ProgA >= ProgB) ? ProgressB : ProgressA;
+	const FPlayerRaceProgress* LeaderP = (Result >= 0) ? ProgressA : ProgressB;
+	const FPlayerRaceProgress* TrailerP = (Result >= 0) ? ProgressB : ProgressA;
 
 	const int32 LeadByCP = FMath::Abs(ProgA - ProgB);
 
-	UE_LOG(LogTemp, Warning, TEXT("[LEAD] %s leads %s by %d checkpoint(s) | Leader(Lap=%d CP=%d) Trailer(Lap=%d CP=%d)"),
-		*GetNameSafe(LeaderCtrl), *GetNameSafe(TrailerCtrl), LeadByCP,
-		LeaderP->Lap, LeaderP->LastCheckpoint,
-		TrailerP->Lap, TrailerP->LastCheckpoint);
+	UE_LOG(LogTemp, Warning,
+		TEXT("[LEAD] %s leads %s | CPGap=%d | Leader(Lap=%d CP=%d Spline=%.1f) Trailer(Lap=%d CP=%d Spline=%.1f)"),
+		*GetNameSafe(LeaderCtrl),
+		*GetNameSafe(TrailerCtrl),
+		LeadByCP,
+		LeaderP->Lap,
+		LeaderP->LastCheckpoint,
+		LeaderP->SplineDistance,
+		TrailerP->Lap,
+		TrailerP->LastCheckpoint,
+		TrailerP->SplineDistance
+	);
 
 	if (GEngine)
 	{
@@ -398,11 +433,21 @@ void ARaceGameMode::UpdatePositions()
 		}
 		else if (Result > 0)
 		{
-			LeadMessage = FString::Printf(TEXT("P1 est devant P2 ! | Ecart CP: %d"), LeadByCP);
+			LeadMessage = FString::Printf(
+				TEXT("P1 est devant P2 ! | Ecart CP: %d | Spline %.0f vs %.0f"),
+				LeadByCP,
+				ProgressA->SplineDistance,
+				ProgressB->SplineDistance
+			);
 		}
 		else if (Result < 0)
 		{
-			LeadMessage = FString::Printf(TEXT("P2 est devant P1 ! | Ecart CP: %d"), LeadByCP);
+			LeadMessage = FString::Printf(
+				TEXT("P2 est devant P1 ! | Ecart CP: %d | Spline %.0f vs %.0f"),
+				LeadByCP,
+				ProgressB->SplineDistance,
+				ProgressA->SplineDistance
+			);
 		}
 		else
 		{
@@ -450,6 +495,8 @@ void ARaceGameMode::NotifyLapCompleted(AController* Controller, int32 NewLapNumb
 	if (APawn* Pawn = Controller->GetPawn())
 	{
 		Progress.DistanceToNext = ComputeDistanceToNextCheckpoint(Pawn, Progress.LastCheckpoint);
+		Progress.SplineDistance = ComputeSplineDistance(Pawn);
+		Progress.SplineAlpha = ComputeSplineAlpha(Pawn);
 	}
 
 	UpdatePositions();
@@ -477,4 +524,209 @@ int32 ARaceGameMode::GetPlayerLapCount(AController* Controller) const
 {
 	const FPlayerRaceProgress* Progress = GetPlayerProgress(Controller);
 	return Progress ? Progress->LapsCompletedCount : 0;
+}
+
+TArray<AController*> ARaceGameMode::GetRaceControllers() const
+{
+	TArray<AController*> Result;
+
+	if (!GetWorld())
+	{
+		return Result;
+	}
+
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		APlayerController* PC = It->Get();
+		if (PC)
+		{
+			Result.Add(PC);
+		}
+	}
+
+	return Result;
+}
+
+float ARaceGameMode::ComputeSplineDistance(APawn* Pawn) const
+{
+	if (!Pawn || !TrackSplineActor)
+	{
+		return 0.f;
+	}
+
+	return TrackSplineActor->GetClosestDistanceAlongSpline(Pawn->GetActorLocation());
+}
+
+float ARaceGameMode::ComputeSplineAlpha(APawn* Pawn) const
+{
+	if (!Pawn || !TrackSplineActor || !TrackSplineActor->Spline)
+	{
+		return 0.f;
+	}
+
+	const float SplineLength = TrackSplineActor->Spline->GetSplineLength();
+	if (SplineLength <= KINDA_SMALL_NUMBER)
+	{
+		return 0.f;
+	}
+
+	const float Distance = ComputeSplineDistance(Pawn);
+	return FMath::Clamp(Distance / SplineLength, 0.f, 1.f);
+}
+
+void ARaceGameMode::RefreshControllerProgress(AController* Controller)
+{
+	if (!Controller)
+	{
+		return;
+	}
+
+	FPlayerRaceProgress& Progress = ProgressByController.FindOrAdd(Controller);
+
+	if (Progress.bFinishedRace)
+	{
+		return;
+	}
+
+	APawn* Pawn = Controller->GetPawn();
+	if (!Pawn)
+	{
+		return;
+	}
+
+	// debug helper
+	Progress.DistanceToNext = ComputeDistanceToNextCheckpoint(Pawn, Progress.LastCheckpoint);
+
+	// progression
+	Progress.SplineDistance = ComputeSplineDistance(Pawn);
+	Progress.SplineAlpha = ComputeSplineAlpha(Pawn);
+}
+
+void ARaceGameMode::RefreshAllPlayerProgress()
+{
+	const TArray<AController*> Controllers = GetRaceControllers();
+
+	for (AController* Controller : Controllers)
+	{
+		RefreshControllerProgress(Controller);
+	}
+}
+
+int32 ARaceGameMode::GetPlayerRacePosition(AController* Controller) const
+{
+	if (!Controller)
+	{
+		return 0;
+	}
+
+	const TArray<AController*> Controllers = GetRaceControllers();
+	if (Controllers.Num() == 0)
+	{
+		return 0;
+	}
+
+	int32 Position = 1;
+
+	for (AController* Other : Controllers)
+	{
+		if (!Other || Other == Controller)
+		{
+			continue;
+		}
+
+		if (CompareControllers(Other, Controller) > 0)
+		{
+			Position++;
+		}
+	}
+
+	return Position;
+}
+
+AController* ARaceGameMode::GetCurrentLeader() const
+{
+	const TArray<AController*> Controllers = GetRaceControllers();
+	if (Controllers.Num() == 0)
+	{
+		return nullptr;
+	}
+
+	AController* Best = Controllers[0];
+
+	for (int32 i = 1; i < Controllers.Num(); ++i)
+	{
+		AController* Candidate = Controllers[i];
+		if (Candidate && CompareControllers(Candidate, Best) > 0)
+		{
+			Best = Candidate;
+		}
+	}
+
+	return Best;
+}
+
+bool ARaceGameMode::IsControllerAheadOf(AController* A, AController* B) const
+{
+	if (!A || !B)
+	{
+		return false;
+	}
+
+	return CompareControllers(A, B) > 0;
+}
+
+int32 ARaceGameMode::GetRaceTotalLaps() const
+{
+	TArray<AActor*> FinishLines;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AFinishLine::StaticClass(), FinishLines);
+
+	if (FinishLines.Num() > 0)
+	{
+		const AFinishLine* FinishLine = Cast<AFinishLine>(FinishLines[0]);
+		if (FinishLine)
+		{
+			return FinishLine->TotalLaps;
+		}
+	}
+
+	return 3;
+}
+
+bool ARaceGameMode::HasControllerFinishedRace(AController* Controller) const
+{
+	if (!Controller)
+	{
+		return false;
+	}
+
+	const FPlayerRaceProgress* Progress = ProgressByController.Find(Controller);
+	if (!Progress)
+	{
+		return false;
+	}
+
+	return Progress->bFinishedRace;
+}
+
+int32 ARaceGameMode::GetDisplayedLapForController(AController* Controller) const
+{
+	if (!Controller)
+	{
+		return 1;
+	}
+
+	const FPlayerRaceProgress* Progress = ProgressByController.Find(Controller);
+	if (!Progress)
+	{
+		return 1;
+	}
+
+	const int32 TotalLaps = GetRaceTotalLaps();
+
+	if (Progress->bFinishedRace)
+	{
+		return TotalLaps;
+	}
+
+	return FMath::Clamp(Progress->Lap + 1, 1, TotalLaps);
 }
