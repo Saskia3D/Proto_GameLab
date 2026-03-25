@@ -352,22 +352,22 @@ protected:
 	float OffTrackTime = 0.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
-	float OffTrackDetectionMargin = 35.f;
+	float OffTrackDetectionMargin = 650.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
-	float OffTrackPenaltyDelay = 0.5f;
+	float OffTrackPenaltyDelay = 0.35f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
-	float OffTrackMaxSpeedMultiplier = 0.50f;
+	float OffTrackMaxSpeedMultiplier = 0.38f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
-	float OffTrackAccelerationMultiplier = 0.35f;
+	float OffTrackAccelerationMultiplier = 0.22f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
-	float OffTrackExtraDeceleration = 250.f;
+	float OffTrackExtraDeceleration = 350.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
-	float OffTrackTeleportDelay = 10.f;
+	float OffTrackTeleportDelay = 5.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
 	float RecoveryHeightOffset = 15.f;
