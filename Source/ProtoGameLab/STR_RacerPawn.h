@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
 #include "InputActionValue.h"
+#include "Components/StaticMeshComponent.h"
 #include "STR_RacerPawn.generated.h"
 
 // Forward declarations
@@ -37,7 +38,8 @@ public:
 	UCapsuleComponent* CapsuleComp;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	UPaperSpriteComponent* SpriteComp;
+	//UPaperSpriteComponent* SpriteComp;
+	UStaticMeshComponent* CarMesh;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	USpringArmComponent* SpringArmComp;
@@ -98,6 +100,16 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Movement")
 	float GetCurrentSpeed() const { return CurrentSpeed; }
+
+	float LastHitTime = 0.f;
+
+	UPROPERTY(EditAnywhere, Category = "Collision")
+	float HitCooldown = 0.2f;
+
+	UFUNCTION()
+	void OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
+		UPrimitiveComponent* OtherComp, FVector NormalImpulse,
+		const FHitResult& Hit);
 
 	//fonctions IA
 	UFUNCTION(BlueprintCallable, Category = "AI")

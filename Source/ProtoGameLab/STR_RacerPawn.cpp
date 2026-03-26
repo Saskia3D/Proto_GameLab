@@ -1,4 +1,4 @@
-#include "STR_RacerPawn.h"
+ï»¿#include "STR_RacerPawn.h"
 
 #include "BuffComponent.h"
 #include "Camera/CameraComponent.h"
@@ -28,13 +28,16 @@ ASTR_RacerPawn::ASTR_RacerPawn()
 	CapsuleComp->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
 
 	// 2. Setup du Sprite
-	SpriteComp = CreateDefaultSubobject<UPaperSpriteComponent>(TEXT("SpriteComp"));
-	SpriteComp->SetupAttachment(RootComponent);
-	SpriteComp->SetRelativeRotation(FRotator(0.0f, -90.0f, 90.0f));
-	SpriteComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	SpriteComp->SetGenerateOverlapEvents(false);
+	//SpriteComp = CreateDefaultSubobject<UPaperSpriteComponent>(TEXT("SpriteComp"));
+	CarMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CarMesh"));
+	CarMesh->SetupAttachment(CapsuleComp);
+	//SpriteComp->SetupAttachment(RootComponent);
+	CarMesh->SetRelativeRotation(FRotator(0.0f, -90.0f, 90.0f));
+	CarMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	CarMesh->SetGenerateOverlapEvents(false);
+	CarMesh->SetRelativeLocation(FVector(0.f, 0.f, -40.f));
 
-	// 3. Setup de la Caméra
+	// 3. Setup de la CamÃ©ra
 	SpringArmComp = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArmComp"));
 	SpringArmComp->SetupAttachment(RootComponent);
 	SpringArmComp->SetUsingAbsoluteRotation(true);
@@ -59,6 +62,8 @@ void ASTR_RacerPawn::BeginPlay()
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[OFF TRACK] No TrackSplineActor found for %s"), *GetName());
 	}
+
+	CapsuleComp->OnComponentHit.AddDynamic(this, &ASTR_RacerPawn::OnHit);
 }
 
 void ASTR_RacerPawn::Tick(float DeltaTime)
@@ -245,7 +250,7 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 
 			if (SteeringVsDrift > 0.f)
 			{
-				// Le joueur steer dans le même sens que le drift
+				// Le joueur steer dans le mÃªme sens que le drift
 				EffectiveDriftSteerInput += CurrentSteeringInput * DriftSteerSameDirectionMultiplier;
 			}
 			else if (SteeringVsDrift < 0.f)
@@ -473,8 +478,8 @@ void ASTR_RacerPawn::UpdateSafeRecoveryPoint()
 
 	const float DistanceToCenter = TrackSplineActor->GetDistanceFromTrackCenter2D(GetActorLocation());
 
-	// On n'enregistre un point sûr que si le joueur est confortablement sur la piste,
-	// pas juste collé au bord.
+	// On n'enregistre un point sÃ»r que si le joueur est confortablement sur la piste,
+	// pas juste collÃ© au bord.
 	const bool bComfortablyOnTrack = DistanceToCenter <= (TrackHalfWidth * SafeRecoveryTrackRatio);
 
 	if (!bComfortablyOnTrack)
@@ -698,6 +703,43 @@ bool ASTR_RacerPawn::HasBuff() const
 	return BuffComponent && BuffComponent->CurrentBuff != nullptr;
 }
 
+/*
+void ASTR_RacerPawn::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
+	UPrimitiveComponent* OtherComp, FVector NormalImpulse,
+	const FHitResult& Hit)
+{
+	if (!OtherActor) return;
+
+	// cooldown
+	if (GetWorld()->TimeSeconds - LastHitTime < HitCooldown) return;
+	LastHitTime = GetWorld()->TimeSeconds;
+
+	// ignorer le sol
+	if (Hit.ImpactNormal.Z > 0.7f) return;
+
+	// vitesse trop faible ignore
+	if (CurrentSpeed < 200.f) return;
+
+	// direction actuelle
+	FVector Forward = GetActorForwardVector();
+
+	// rÃ©flexion
+	FVector BounceDir = FVector::VectorPlaneProject(Forward, Hit.ImpactNormal) * -1.f;
+	BounceDir.Z = 0.f;
+	BounceDir = BounceDir.GetSafeNormal();
+
+	// tourner la voiture vers la nouvelle direction
+	FRotator NewRotation = BounceDir.Rotation();
+	SetActorRotation(NewRotation);
+
+	// ralentir
+	CurrentSpeed *= 0.6f;
+
+	// petit tilt visuel
+	FRotator Tilt = FRotator(0.f, 0.f, FMath::RandRange(-6.f, 6.f));
+	CarMesh->AddLocalRotation(Tilt);
+}*/
+
 void ASTR_RacerPawn::TeleportBackToTrack()
 {
 	if (!bHasSafeRecoveryPoint)
@@ -728,7 +770,7 @@ void ASTR_RacerPawn::TeleportBackToTrack()
 		ETeleportType::TeleportPhysics
 	);
 
-	// Reset état drift / boost
+	// Reset Ã©tat drift / boost
 	bIsDrifting = false;
 	DriftDirection = 0;
 	CurrentDriftAngle = 0.f;
@@ -750,7 +792,7 @@ void ASTR_RacerPawn::TeleportBackToTrack()
 	MoveVelocity = SafeForward * CurrentSpeed;
 	LastTravelDir = SafeForward;
 
-	// Reset état off-track
+	// Reset Ã©tat off-track
 	bIsOffTrack = false;
 	bOffTrackPenaltyActive = false;
 	OffTrackTime = 0.f;
@@ -790,7 +832,7 @@ void ASTR_RacerPawn::UpdateWrongWayState(float DeltaTime)
 		return;
 	}
 
-	// on ne détecte pas le contre-sens quand le joueur est hors piste.
+	// on ne dÃ©tecte pas le contre-sens quand le joueur est hors piste.
 	if (bIsOffTrack)
 	{
 		bIsGoingWrongWay = false;
