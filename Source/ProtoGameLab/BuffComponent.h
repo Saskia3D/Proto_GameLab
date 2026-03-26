@@ -29,6 +29,14 @@ public:
 	UPROPERTY()
 	TArray<UBuffBase*> ActiveBuffs;
 
+	UFUNCTION(BlueprintPure, Category = "UI")
+	UTexture2D* GetCurrentBuffIcon() const;
+
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnBuffChanged);
+
+	UPROPERTY(BlueprintAssignable)
+	FOnBuffChanged OnBuffChanged;
+
 private:
 	UBuffBase* FindActiveBuffByClass(UClass* BuffClass) const;
 };

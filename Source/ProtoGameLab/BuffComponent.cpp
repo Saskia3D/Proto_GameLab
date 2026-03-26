@@ -28,6 +28,9 @@ void UBuffComponent::AddBuff(TSubclassOf<UBuffBase> BuffClass)
     CurrentBuff = NewObject<UBuffBase>(this, BuffClass);
 
     UE_LOG(LogTemp, Warning, TEXT("[BUFF] Stored buff added: %s"), *BuffClass->GetName());
+
+    OnBuffChanged.Broadcast();
+
 }
 
 UBuffBase* UBuffComponent::FindActiveBuffByClass(UClass* BuffClass) const
@@ -91,6 +94,8 @@ void UBuffComponent::UseBuff()
 	}*/
 
     CurrentBuff = nullptr;
+
+    OnBuffChanged.Broadcast();
 }
 
 void UBuffComponent::NotifyBuffExpired(UBuffBase* ExpiredBuff)
@@ -102,4 +107,13 @@ void UBuffComponent::NotifyBuffExpired(UBuffBase* ExpiredBuff)
     UE_LOG(LogTemp, Warning, TEXT("[BUFF] Removed expired buff: %s | ActiveBuffs = %d"),
         *GetNameSafe(ExpiredBuff),
         ActiveBuffs.Num());
+}
+
+UTexture2D* UBuffComponent::GetCurrentBuffIcon() const
+{
+    if (CurrentBuff)
+    {
+        return CurrentBuff->BuffIcon;
+    }
+    return nullptr;
 }

@@ -19,6 +19,10 @@ public:
 	void RefreshDuration();
 	bool IsActive() const { return bIsActive; }
 
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
+	UTexture2D* BuffIcon;
+
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	float Duration = 3.0f;
@@ -33,4 +37,5 @@ protected:
 	void StartDurationTimer();
 
 	virtual void OnBuffExpired();
+
 };
