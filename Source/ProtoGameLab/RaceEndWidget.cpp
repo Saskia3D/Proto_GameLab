@@ -12,6 +12,8 @@
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
+#include "GameFramework/PlayerController.h"
+#include "GameFramework/PlayerInput.h"
 #include "Input/Events.h"
 #include "Input/Reply.h"
 #include "InputCoreTypes.h"
@@ -139,6 +141,7 @@ void URaceEndWidget::NativeConstruct()
 	StyleExistingMenuWidgets();
 	BuildRuntimeMenuChrome();
 	BuildRuntimeLeaderboard();
+	ResetAcceptInputGate(0.25f);
 	SetKeyboardFocus();
 }
 
@@ -146,6 +149,7 @@ void URaceEndWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
 
+	UpdateAcceptInputGate(InDeltaTime);
 	UpdateScoreAnimation(InDeltaTime);
 	UpdateContinuePrompt(InDeltaTime);
 }
@@ -158,6 +162,12 @@ bool URaceEndWidget::NativeSupportsKeyboardFocus() const
 FReply URaceEndWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
 	const FKey Key = InKeyEvent.GetKey();
+
+	if (IsAcceptKey(Key) && !bAcceptInputArmed)
+	{
+		bAcceptPressedDuringGate = true;
+		return FReply::Handled();
+	}
 
 	if (CurrentPage == ERaceEndPage::Scores)
 	{
@@ -209,14 +219,45 @@ FReply URaceEndWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEv
 	return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
 }
 
+FReply URaceEndWidget::NativeOnKeyUp(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+	const FKey Key = InKeyEvent.GetKey();
+
+	if (IsAcceptKey(Key) && !bAcceptInputArmed)
+	{
+		bAcceptPressedDuringGate = false;
+		if (AcceptInputArmDelayRemaining <= 0.f)
+		{
+			bAcceptInputArmed = true;
+		}
+
+		return FReply::Handled();
+	}
+
+	return Super::NativeOnKeyUp(InGeometry, InKeyEvent);
+}
+
 void URaceEndWidget::OnRestartClicked()
 {
-	UGameplayStatics::OpenLevel(this, FName("Lvl_Test_2Players"));
+	FName RestartLevel = FName("Lvl_Test_2Players");
+
+	if (const UWorld* World = GetWorld())
+	{
+		if (const UProtoGameLabGameInstance* GameInstance = Cast<UProtoGameLabGameInstance>(World->GetGameInstance()))
+		{
+			if (!GameInstance->GetLastRaceMapName().IsNone())
+			{
+				RestartLevel = GameInstance->GetLastRaceMapName();
+			}
+		}
+	}
+
+	OpenLevelWithCleanInput(RestartLevel, true);
 }
 
 void URaceEndWidget::OnMainMenuClicked()
 {
-	UGameplayStatics::OpenLevel(this, FName("MainMenu"));
+	OpenLevelWithCleanInput(FName("MainMenu"), false);
 }
 
 void URaceEndWidget::LoadLeaderboardEntries()
@@ -736,6 +777,7 @@ void URaceEndWidget::ShowActionPage()
 {
 	CurrentPage = ERaceEndPage::Actions;
 	SelectedActionIndex = 0;
+	ResetAcceptInputGate(0.18f);
 
 	if (ScorePageWidget)
 	{
@@ -785,4 +827,52 @@ void URaceEndWidget::UpdateContinuePrompt(const float DeltaTime)
 	ContinuePromptPulseTime += DeltaTime * ContinuePulseSpeed;
 	const float Alpha = 0.45f + (0.55f * ((FMath::Sin(ContinuePromptPulseTime) + 1.f) * 0.5f));
 	ContinuePromptText->SetRenderOpacity(Alpha);
+}
+
+void URaceEndWidget::UpdateAcceptInputGate(const float DeltaTime)
+{
+	if (bAcceptInputArmed)
+	{
+		return;
+	}
+
+	AcceptInputArmDelayRemaining = FMath::Max(0.f, AcceptInputArmDelayRemaining - DeltaTime);
+	if (AcceptInputArmDelayRemaining <= 0.f && !bAcceptPressedDuringGate)
+	{
+		bAcceptInputArmed = true;
+	}
+}
+
+void URaceEndWidget::ResetAcceptInputGate(const float ArmDelaySeconds)
+{
+	AcceptInputArmDelayRemaining = FMath::Max(0.f, ArmDelaySeconds);
+	bAcceptInputArmed = false;
+	bAcceptPressedDuringGate = false;
+}
+
+void URaceEndWidget::OpenLevelWithCleanInput(const FName LevelName, const bool bPrepareGameInput)
+{
+	APlayerController* PC = GetOwningPlayer();
+	if (!PC)
+	{
+		PC = UGameplayStatics::GetPlayerController(this, 0);
+	}
+
+	if (PC)
+	{
+		if (PC->PlayerInput)
+		{
+			PC->PlayerInput->FlushPressedKeys();
+		}
+
+		if (bPrepareGameInput)
+		{
+			FInputModeGameOnly GameOnlyInputMode;
+			PC->SetInputMode(GameOnlyInputMode);
+		}
+
+		PC->bShowMouseCursor = false;
+	}
+
+	UGameplayStatics::OpenLevel(this, LevelName);
 }

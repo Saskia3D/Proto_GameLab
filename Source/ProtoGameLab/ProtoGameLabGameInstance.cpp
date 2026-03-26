@@ -9,3 +9,8 @@ void UProtoGameLabGameInstance::ClearLastRaceLeaderboard()
 {
 	LastRaceLeaderboard.Reset();
 }
+
+void UProtoGameLabGameInstance::SetLastRaceMapName(const FName InMapName)
+{
+	LastRaceMapName = InMapName;
+}
