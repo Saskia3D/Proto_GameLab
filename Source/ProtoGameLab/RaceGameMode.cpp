@@ -77,6 +77,7 @@ void ARaceGameMode::StartRace()
 		if (UProtoGameLabGameInstance* GameInstance = Cast<UProtoGameLabGameInstance>(GetWorld()->GetGameInstance()))
 		{
 			GameInstance->ClearLastRaceLeaderboard();
+			GameInstance->SetLastRaceMapName(FName(*UGameplayStatics::GetCurrentLevelName(GetWorld(), true)));
 		}
 	}
 }

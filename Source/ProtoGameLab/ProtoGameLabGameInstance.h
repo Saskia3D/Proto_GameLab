@@ -17,6 +17,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Leaderboard")
 	void ClearLastRaceLeaderboard();
 
+	UFUNCTION(BlueprintCallable, Category = "Race")
+	void SetLastRaceMapName(FName InMapName);
+
+	UFUNCTION(BlueprintPure, Category = "Race")
+	FName GetLastRaceMapName() const { return LastRaceMapName; }
+
 	UFUNCTION(BlueprintPure, Category = "Leaderboard")
 	TArray<FRaceLeaderboardEntry> GetLastRaceLeaderboard() const { return LastRaceLeaderboard; }
 
@@ -25,4 +31,7 @@ public:
 private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Leaderboard", meta = (AllowPrivateAccess = "true"))
 	TArray<FRaceLeaderboardEntry> LastRaceLeaderboard;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Race", meta = (AllowPrivateAccess = "true"))
+	FName LastRaceMapName = NAME_None;
 };
