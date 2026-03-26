@@ -48,7 +48,7 @@ void UTimeStopBuff::ApplyTimeStop()
 		if (!A || A == CachedPlayer) continue;
 
 		SavedDilations.Add(A, A->CustomTimeDilation);
-		A->CustomTimeDilation = 0.0f;
+		A->CustomTimeDilation = 0.001f;
 	}
 
 	//Geler les obstacles
@@ -61,8 +61,14 @@ void UTimeStopBuff::ApplyTimeStop()
 
 		if(SavedDilations.Contains(A)) continue;
 
+		if (A->CustomTimeDilation <= 0.001f)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[TS] Skipping already frozen affectable: %s"), *GetNameSafe(A));
+			continue;
+		}
+
 		SavedDilations.Add(A, A->CustomTimeDilation);
-		A->CustomTimeDilation = 0.0f;
+		A->CustomTimeDilation = 0.001f;
 	}
 }
 
@@ -87,7 +93,17 @@ void UTimeStopBuff::RestoreTimeStop()
 		AActor* A = Pair.Key.Get();
 		if(!A) continue;
 
-		A->CustomTimeDilation = Pair.Value;
+		float RestoredValue = Pair.Value;
+
+		if (FMath::IsNearlyZero(RestoredValue))
+		{
+			RestoredValue = 1.0f;
+		}
+
+		A->CustomTimeDilation = RestoredValue;
+
+		UE_LOG(LogTemp, Warning, TEXT("[TS] Restored %s to %f"),
+			*GetNameSafe(A), RestoredValue);
 	}
 
 	SavedDilations.Empty();
