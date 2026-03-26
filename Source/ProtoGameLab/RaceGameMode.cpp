@@ -1,17 +1,18 @@
-// RaceGameMode.cpp - Implémentation de la classe ARaceGameMode, qui gère la logique de la course, y compris le démarrage de la course, la notification des joueurs qui terminent, et le suivi de l'ordre d'arrivée. 
+// RaceGameMode.cpp - Implï¿½mentation de la classe ARaceGameMode, qui gï¿½re la logique de la course, y compris le dï¿½marrage de la course, la notification des joueurs qui terminent, et le suivi de l'ordre d'arrivï¿½e. 
 
 #include "RaceGameMode.h"
-#include "TrackManager.h"
 #include "Checkpoint.h"
-#include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "Kismet/GameplayStatics.h"
+#include "ProtoGameLabGameInstance.h"
 #include "Components/PrimitiveComponent.h"
 #include "TrackSplineActor.h"
 #include "Components/SplineComponent.h"
 #include "FinishLine.h"
 #include "TimerManager.h"
+#include "TrackManager.h"
 
 ARaceGameMode::ARaceGameMode()
 {
@@ -70,6 +71,14 @@ void ARaceGameMode::StartRace()
 	{
 		GetWorldTimerManager().ClearTimer(FinishCountdownHandle);
 	}
+
+	if (GetWorld())
+	{
+		if (UProtoGameLabGameInstance* GameInstance = Cast<UProtoGameLabGameInstance>(GetWorld()->GetGameInstance()))
+		{
+			GameInstance->ClearLastRaceLeaderboard();
+		}
+	}
 }
 
 float ARaceGameMode::GetRaceTimeSeconds() const
@@ -99,6 +108,188 @@ bool ARaceGameMode::IsControllerFinished(AController* Controller) const
 
 	const FPlayerRaceProgress* Progress = ProgressByController.Find(Controller);
 	return Progress ? Progress->bFinishedRace : false;
+}
+
+int32 ARaceGameMode::FindFinishOrderIndex(AController* Controller) const
+{
+	if (!Controller)
+	{
+		return INDEX_NONE;
+	}
+
+	for (int32 Index = 0; Index < FinishOrder.Num(); ++Index)
+	{
+		if (FinishOrder[Index].Controller == Controller)
+		{
+			return Index;
+		}
+	}
+
+	return INDEX_NONE;
+}
+
+float ARaceGameMode::GetFinishTimeForController(AController* Controller) const
+{
+	if (!Controller)
+	{
+		return -1.f;
+	}
+
+	for (const FRaceFinishEntry& Entry : FinishOrder)
+	{
+		if (Entry.Controller == Controller)
+		{
+			return Entry.FinishTime;
+		}
+	}
+
+	return -1.f;
+}
+
+void ARaceGameMode::GatherRaceControllers(TArray<AController*>& OutControllers) const
+{
+	OutControllers.Reset();
+
+	TSet<TObjectPtr<AController>> UniqueControllers;
+
+	for (const TPair<TObjectPtr<AController>, FPlayerRaceProgress>& Pair : ProgressByController)
+	{
+		if (Pair.Key)
+		{
+			UniqueControllers.Add(Pair.Key);
+		}
+	}
+
+	for (const FRaceFinishEntry& Entry : FinishOrder)
+	{
+		if (Entry.Controller)
+		{
+			UniqueControllers.Add(Entry.Controller);
+		}
+	}
+
+	if (GetWorld())
+	{
+		TArray<AActor*> PawnActors;
+		UGameplayStatics::GetAllActorsOfClass(GetWorld(), APawn::StaticClass(), PawnActors);
+
+		for (AActor* Actor : PawnActors)
+		{
+			if (APawn* Pawn = Cast<APawn>(Actor))
+			{
+				if (AController* Controller = Pawn->GetController())
+				{
+					UniqueControllers.Add(Controller);
+				}
+			}
+		}
+	}
+
+	OutControllers.Reserve(UniqueControllers.Num());
+	for (AController* Controller : UniqueControllers)
+	{
+		if (Controller)
+		{
+			OutControllers.Add(Controller);
+		}
+	}
+}
+
+TArray<FRaceLeaderboardEntry> ARaceGameMode::BuildLeaderboardSnapshot() const
+{
+	TArray<AController*> Controllers;
+	GatherRaceControllers(Controllers);
+
+	Controllers.Sort([this](const AController& Left, const AController& Right)
+	{
+		if (&Left == &Right)
+		{
+			return false;
+		}
+
+		const int32 LeftFinishIndex = FindFinishOrderIndex(const_cast<AController*>(&Left));
+		const int32 RightFinishIndex = FindFinishOrderIndex(const_cast<AController*>(&Right));
+
+		const bool bLeftFinished = LeftFinishIndex != INDEX_NONE;
+		const bool bRightFinished = RightFinishIndex != INDEX_NONE;
+
+		if (bLeftFinished != bRightFinished)
+		{
+			return bLeftFinished;
+		}
+
+		if (bLeftFinished && bRightFinished)
+		{
+			return LeftFinishIndex < RightFinishIndex;
+		}
+
+		const int32 CompareResult = CompareControllers(const_cast<AController*>(&Left), const_cast<AController*>(&Right));
+		if (CompareResult != 0)
+		{
+			return CompareResult > 0;
+		}
+
+		return GetNameSafe(&Left) < GetNameSafe(&Right);
+	});
+
+	TMap<TObjectPtr<AController>, FString> DisplayNames;
+	int32 HumanIndex = 1;
+	int32 AIIndex = 1;
+
+	for (AController* Controller : Controllers)
+	{
+		if (Cast<APlayerController>(Controller))
+		{
+			DisplayNames.Add(Controller, FString::Printf(TEXT("Joueur %d"), HumanIndex++));
+		}
+	}
+
+	for (AController* Controller : Controllers)
+	{
+		if (!DisplayNames.Contains(Controller))
+		{
+			DisplayNames.Add(Controller, FString::Printf(TEXT("IA %d"), AIIndex++));
+		}
+	}
+
+	TArray<FRaceLeaderboardEntry> Entries;
+	Entries.Reserve(Controllers.Num());
+
+	for (int32 Index = 0; Index < Controllers.Num(); ++Index)
+	{
+		AController* Controller = Controllers[Index];
+		const FPlayerRaceProgress* Progress = GetPlayerProgress(Controller);
+		const int32 FinishIndex = FindFinishOrderIndex(Controller);
+
+		FRaceLeaderboardEntry Entry;
+		Entry.Position = Index + 1;
+		Entry.PlayerName = DisplayNames.FindRef(Controller);
+		Entry.FinishTimeSeconds = GetFinishTimeForController(Controller);
+		Entry.Score = GetPlayerScore(Controller);
+		Entry.LapsCompleted = GetPlayerLapCount(Controller);
+		Entry.CheckpointsPassed = GetPlayerCheckpointCount(Controller);
+		Entry.CurrentLap = Progress ? Progress->Lap : 0;
+		Entry.LastCheckpointIndex = Progress ? Progress->LastCheckpoint : -1;
+		Entry.bFinishedRace = FinishIndex != INDEX_NONE;
+
+		Entries.Add(Entry);
+	}
+
+	return Entries;
+}
+
+void ARaceGameMode::CacheLeaderboardForEndMenu()
+{
+	if (GetWorld())
+	{
+		if (UProtoGameLabGameInstance* GameInstance = Cast<UProtoGameLabGameInstance>(GetWorld()->GetGameInstance()))
+		{
+			const TArray<FRaceLeaderboardEntry> Snapshot = BuildLeaderboardSnapshot();
+			GameInstance->SaveLastRaceLeaderboard(Snapshot);
+
+			UE_LOG(LogTemp, Warning, TEXT("[LEADERBOARD] Stored %d entries for RaceEndMenu"), Snapshot.Num());
+		}
+	}
 }
 
 void ARaceGameMode::NotifyPlayerFinished(AActor* PlayerActor)
@@ -164,7 +355,7 @@ void ARaceGameMode::NotifyPlayerFinished(AActor* PlayerActor)
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, Message);
 	}
 
-	// On démarre le compte à rebours seulement quand le premier joueur finit
+	// On dï¿½marre le compte ï¿½ rebours seulement quand le premier joueur finit
 	if (!bFinishCountdownStarted && bUseFinishCountdown)
 	{
 		bFinishCountdownStarted = true;
@@ -189,7 +380,7 @@ void ARaceGameMode::NotifyPlayerFinished(AActor* PlayerActor)
 		}
 	}
 
-	// Si tous les joueurs attendus ont fini, fin immédiate
+	// Si tous les joueurs attendus ont fini, fin immï¿½diate
 	if (FinishOrder.Num() >= NumPlayersToFinish)
 	{
 		EndRace();
@@ -207,6 +398,7 @@ void ARaceGameMode::EndRace()
 	RaceState = ERaceState::Finished;
 
 	GetWorldTimerManager().ClearTimer(FinishCountdownHandle);
+	CacheLeaderboardForEndMenu();
 
 	if (GEngine && FinishOrder.Num() > 0)
 	{
@@ -327,13 +519,13 @@ int32 ARaceGameMode::CompareControllers(AController* A, AController* B) const
 		return ProgressA->bFinishedRace ? 1 : -1;
 	}
 
-	// 2) le lap reste le critère principal
+	// 2) le lap reste le critï¿½re principal
 	if (ProgressA->Lap != ProgressB->Lap)
 	{
 		return (ProgressA->Lap > ProgressB->Lap) ? 1 : -1;
 	}
 
-	// 3) le dernier checkpoint validé
+	// 3) le dernier checkpoint validï¿½
 	if (ProgressA->LastCheckpoint != ProgressB->LastCheckpoint)
 	{
 		return (ProgressA->LastCheckpoint > ProgressB->LastCheckpoint) ? 1 : -1;
@@ -730,3 +922,4 @@ int32 ARaceGameMode::GetDisplayedLapForController(AController* Controller) const
 
 	return FMath::Clamp(Progress->Lap + 1, 1, TotalLaps);
 }
+

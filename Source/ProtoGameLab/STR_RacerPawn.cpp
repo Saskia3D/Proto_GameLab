@@ -1,4 +1,4 @@
-﻿#include "STR_RacerPawn.h"
+#include "STR_RacerPawn.h"
 
 #include "BuffComponent.h"
 #include "Camera/CameraComponent.h"
@@ -7,6 +7,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "PaperSpriteComponent.h"
+#include "RaceMinimapWidget.h"
 #include "TrackSplineActor.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -48,6 +49,7 @@ ASTR_RacerPawn::ASTR_RacerPawn()
 	CameraComp->SetupAttachment(SpringArmComp);
 
 	BuffComponent = CreateDefaultSubobject<UBuffComponent>(TEXT("BuffComponent"));
+	MinimapWidgetClass = URaceMinimapWidget::StaticClass();
 }
 
 void ASTR_RacerPawn::BeginPlay()
@@ -64,6 +66,7 @@ void ASTR_RacerPawn::BeginPlay()
 	}
 
 	CapsuleComp->OnComponentHit.AddDynamic(this, &ASTR_RacerPawn::OnHit);
+	EnsureMinimapWidget();
 }
 
 void ASTR_RacerPawn::Tick(float DeltaTime)
@@ -585,10 +588,14 @@ void ASTR_RacerPawn::PossessedBy(AController* NewController)
 	{
 		Subsystem->AddMappingContext(DefaultMappingContext, 0);
 	}
+
+	EnsureMinimapWidget();
 }
 
 void ASTR_RacerPawn::UnPossessed()
 {
+	RemoveMinimapWidget();
+
 	APlayerController* PC = Cast<APlayerController>(Controller);
 	if (PC)
 	{
@@ -605,6 +612,41 @@ void ASTR_RacerPawn::UnPossessed()
 	}
 
 	Super::UnPossessed();
+}
+
+void ASTR_RacerPawn::EnsureMinimapWidget()
+{
+	if (MinimapWidget || !MinimapWidgetClass)
+	{
+		return;
+	}
+
+	APlayerController* PC = Cast<APlayerController>(GetController());
+	if (!PC || !PC->IsLocalController())
+	{
+		return;
+	}
+
+	ULocalPlayer* LP = PC->GetLocalPlayer();
+	if (!LP || LP->GetControllerId() != 0)
+	{
+		return;
+	}
+
+	MinimapWidget = CreateWidget<URaceMinimapWidget>(PC, MinimapWidgetClass);
+	if (MinimapWidget)
+	{
+		MinimapWidget->AddToPlayerScreen(40);
+	}
+}
+
+void ASTR_RacerPawn::RemoveMinimapWidget()
+{
+	if (MinimapWidget)
+	{
+		MinimapWidget->RemoveFromParent();
+		MinimapWidget = nullptr;
+	}
 }
 
 float ASTR_RacerPawn::GetSignedSlipAngleDegrees() const
@@ -703,7 +745,6 @@ bool ASTR_RacerPawn::HasBuff() const
 	return BuffComponent && BuffComponent->CurrentBuff != nullptr;
 }
 
-/*
 void ASTR_RacerPawn::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 	UPrimitiveComponent* OtherComp, FVector NormalImpulse,
 	const FHitResult& Hit)
@@ -738,7 +779,7 @@ void ASTR_RacerPawn::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 	// petit tilt visuel
 	FRotator Tilt = FRotator(0.f, 0.f, FMath::RandRange(-6.f, 6.f));
 	CarMesh->AddLocalRotation(Tilt);
-}*/
+}
 
 void ASTR_RacerPawn::TeleportBackToTrack()
 {
@@ -885,3 +926,4 @@ void ASTR_RacerPawn::UpdateWrongWayState(float DeltaTime)
 			bWrongWayWarningActive ? TEXT("SHOW WARNING") : TEXT("HIDE WARNING"));
 	}
 }
+

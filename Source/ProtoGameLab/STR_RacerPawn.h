@@ -15,6 +15,7 @@ class UInputAction;
 class UPaperSpriteComponent;
 class UPaperSprite;
 class UBuffComponent;
+class URaceMinimapWidget;
 class ATrackSplineActor;
 
 UCLASS()
@@ -94,6 +95,9 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|UI")
 	float TeleportFeedbackTimer = 0.f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Minimap")
+	TSubclassOf<URaceMinimapWidget> MinimapWidgetClass;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|UI")
 	float TeleportFeedbackDuration = 1.75f;
@@ -390,6 +394,9 @@ protected:
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Track|OffTrack")
 	TObjectPtr<ATrackSplineActor> TrackSplineActor = nullptr;
 
+	UPROPERTY(Transient)
+	TObjectPtr<URaceMinimapWidget> MinimapWidget = nullptr;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|Recovery")
 	bool bHasSafeRecoveryPoint = false;
 
@@ -408,6 +415,8 @@ protected:
 	void UpdateSafeRecoveryPoint();
 
 	void UpdateOffTrackState(float DeltaTime);
+	void EnsureMinimapWidget();
+	void RemoveMinimapWidget();
 
 	void TeleportBackToTrack();
 
@@ -417,3 +426,4 @@ protected:
 
 	void UpdateWrongWayState(float DeltaTime);
 };
+
