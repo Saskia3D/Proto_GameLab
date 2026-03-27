@@ -1,116 +1,94 @@
 #include "CameraMan.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/Pawn.h"
-#include "Math/UnrealMathUtility.h"
-#include "GameFramework/PlayerStart.h"
 #include "GameFramework/PlayerController.h"
+#include "Engine/World.h"
+#include "TimerManager.h"
 
 ACamManager::ACamManager()
 {
-    PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = true;
 
-    USceneComponent* SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
-    RootComponent = SceneRoot;
+	SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
+	RootComponent = SceneRoot;
 
-    SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
-    SpringArm->SetupAttachment(SceneRoot);
-    SpringArm->TargetArmLength = 0.f;
-    SpringArm->bDoCollisionTest = false;
+	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
+	SpringArm->SetupAttachment(SceneRoot);
+	SpringArm->TargetArmLength = 0.f;
+	SpringArm->bDoCollisionTest = false;
 
-    Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
-    Camera->SetupAttachment(SpringArm);
+	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
+	Camera->SetupAttachment(SpringArm);
+
+	Camera->ProjectionMode = ECameraProjectionMode::Orthographic;
+	Camera->OrthoWidth = 6000.f;
 }
 
 void ACamManager::BeginPlay()
 {
-    Super::BeginPlay();
+	Super::BeginPlay();
 
-    TArray<AActor*> Starts;
-    UGameplayStatics::GetAllActorsOfClass(GetWorld(), APlayerStart::StaticClass(), Starts);
-
-    if (Starts.Num() >= 2)
-    {
-        FVector MidPoint = (Starts[0]->GetActorLocation() + Starts[1]->GetActorLocation()) / 2.f;
-
-        SetActorLocation(MidPoint + FVector(
-            0.f,
-            0.f,
-            2500.f
-        ));
-
-        SetActorRotation(FRotator(
-            -60.f,
-            0.f,
-            0.f
-        ));
-    }
-
-    FTimerHandle TimerHandle;
-    GetWorldTimerManager().SetTimer(TimerHandle, [this]()
-        {
-            APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
-            if (PC)
-            {
-                FViewTargetTransitionParams Params;
-                Params.BlendTime = 0.f;
-                PC->bAutoManageActiveCameraTarget = false;
-                PC->SetViewTarget(this, Params);
-            }
-        }, 0.5f, false);
+	APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
+	if (PC)
+	{
+		PC->bAutoManageActiveCameraTarget = false;
+		PC->SetViewTarget(this);
+	}
 }
 
 void ACamManager::Tick(float DeltaTime)
 {
-    Super::Tick(DeltaTime);
+	Super::Tick(DeltaTime);
 
-    TArray<AActor*> Players;
-    UGameplayStatics::GetAllActorsOfClass(GetWorld(), APawn::StaticClass(), Players);
+	TArray<AActor*> Players;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), APawn::StaticClass(), Players);
 
-    Players.RemoveAll([](AActor* Actor)
-        {
-            APawn* Pawn = Cast<APawn>(Actor);
-            return !Pawn || !Pawn->IsPlayerControlled();
-        });
+	Players.RemoveAll([](AActor* Actor)
+		{
+			APawn* Pawn = Cast<APawn>(Actor);
+			return !Pawn || !Pawn->IsPlayerControlled();
+		});
 
-    if (Players.Num() == 0) return;
+	if (Players.Num() == 0) return;
 
-    // Midpoint between all players
-    FVector Midpoint = FVector::ZeroVector;
-    for (AActor* Player : Players)
-    {
-        Midpoint += Player->GetActorLocation();
-    }
-    Midpoint /= Players.Num();
+	FVector Midpoint = FVector::ZeroVector;
+	FVector AvgVelocity = FVector::ZeroVector;
 
-    // Max distance between players for zoom
-    float MaxDistance = 0.f;
-    for (int32 i = 0; i < Players.Num(); i++)
-    {
-        for (int32 j = i + 1; j < Players.Num(); j++)
-        {
-            float Dist = FVector::Dist(
-                Players[i]->GetActorLocation(),
-                Players[j]->GetActorLocation()
-            );
-            MaxDistance = FMath::Max(MaxDistance, Dist);
-        }
-    }
+	for (AActor* Player : Players)
+	{
+		Midpoint += Player->GetActorLocation();
+		AvgVelocity += Cast<APawn>(Player)->GetVelocity();
+	}
 
-    float ZoomDistance = MaxDistance * 0.685f;
+	Midpoint /= Players.Num();
+	AvgVelocity /= Players.Num();
 
-    
-    FVector CameraOffset = FVector::ZeroVector;
-    CameraOffset.X = -(MinZoom)-ZoomDistance;
-    CameraOffset.Y = -(CameraBackOffset);
-    CameraOffset.Z = CameraHeight;
+	FVector LookAhead = FVector::ZeroVector;
+	if (!AvgVelocity.IsNearlyZero())
+	{
+		LookAhead = AvgVelocity.GetSafeNormal() * LookAheadDistance;
+	}
 
-    FVector TargetLocation = Midpoint + CameraOffset;
+	// Try X-back first. If wrong, switch to Y-back version below.
+	//FVector TargetLocation = Midpoint + LookAhead + FVector(-CameraBackOffset, CameraSideOffset, CameraHeight);
+	const FRotator FixedCamRot(CameraPitch, CameraYaw, 0.f);
 
-	// follow target location 
-    FVector NewLocation = FMath::VInterpTo(GetActorLocation(), TargetLocation, DeltaTime, 5.f);
-    SetActorLocation(NewLocation);
+	const FVector Forward2D = FRotationMatrix(FRotator(0.f, CameraYaw, 0.f)).GetUnitAxis(EAxis::X);
+	const FVector Right2D = FRotationMatrix(FRotator(0.f, CameraYaw, 0.f)).GetUnitAxis(EAxis::Y);
 
-    // Always look at midpoint
-    FRotator LookAtRotation = (Midpoint - NewLocation).Rotation();
-    SetActorRotation(LookAtRotation);
+	FVector TargetLocation =
+		Midpoint
+		+ LookAhead
+		- (Forward2D * CameraBackOffset)
+		+ (Right2D * CameraSideOffset)
+		+ FVector(0.f, 0.f, CameraHeight);
+	// Alternate version if your track runs along Y:
+	// FVector TargetLocation = Midpoint + LookAhead + FVector(CameraSideOffset, -CameraBackOffset, CameraHeight);
+
+	FVector NewLocation = FMath::VInterpTo(GetActorLocation(), TargetLocation, DeltaTime, FollowInterpSpeed);
+	SetActorLocation(NewLocation);
+
+	SetActorRotation(FRotator(CameraPitch, CameraYaw, 0.f));
+
+	Camera->OrthoWidth = OrthoWidth;
 }

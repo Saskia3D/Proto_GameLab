@@ -21,24 +21,35 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 	UPROPERTY(VisibleAnywhere)
+	USceneComponent* SceneRoot;
+
+	UPROPERTY(VisibleAnywhere)
 	USpringArmComponent* SpringArm;
 
 	UPROPERTY(VisibleAnywhere)
 	UCameraComponent* Camera;
 
-	UPROPERTY(EditAnywhere)
-	float CameraHeight = 1000.f;
+	UPROPERTY(EditAnywhere, Category = "Camera")
+	float CameraPitch = -60.f;
 
-	UPROPERTY(EditAnywhere)
-	float CameraBackOffset = 300.f;
+	UPROPERTY(EditAnywhere, Category = "Camera")
+	float CameraYaw = 90.f;
 
-	// Min and max zoom distance
-	UPROPERTY(EditAnywhere)
-	float MinZoom = 800.f;
+	UPROPERTY(EditAnywhere, Category = "Camera")
+	float CameraHeight = 1800.f;
 
-	UPROPERTY(EditAnywhere)
-	float MaxZoom = 1000.f;
+	UPROPERTY(EditAnywhere, Category = "Camera")
+	float CameraBackOffset = 400.f;
 
-	UPROPERTY(EditAnywhere)
-	float ZoomMultiplier = 1.0f;
+	UPROPERTY(EditAnywhere, Category = "Camera")
+	float CameraSideOffset = 0.f;
+
+	UPROPERTY(EditAnywhere, Category = "Camera")
+	float FollowInterpSpeed = 5.f;
+
+	UPROPERTY(EditAnywhere, Category = "Camera")
+	float LookAheadDistance = 0.f;
+
+	UPROPERTY(EditAnywhere, Category = "Camera")
+	float OrthoWidth = 6000.f;
 };
