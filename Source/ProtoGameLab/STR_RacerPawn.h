@@ -102,15 +102,24 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Movement")
 	float GetCurrentSpeed() const { return CurrentSpeed; }
 
-	float LastHitTime = 0.f;
+	// Knockback
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision")
+	float KnockbackStrength = 600.f;
 
-	UPROPERTY(EditAnywhere, Category = "Collision")
-	float HitCooldown = 0.2f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision")
+	float KnockbackVerticalBoost = 120.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision")
+	float HitCooldown = 0.35f;
+
+	float LastHitTime = -100.f;
 
 	UFUNCTION()
 	void OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 		UPrimitiveComponent* OtherComp, FVector NormalImpulse,
 		const FHitResult& Hit);
+
+	float HitStunTimer = 0.f;
 
 	//fonctions IA
 	UFUNCTION(BlueprintCallable, Category = "AI")

@@ -19,7 +19,7 @@ ASTR_RacerPawn::ASTR_RacerPawn()
 	CapsuleComp = CreateDefaultSubobject<UCapsuleComponent>(TEXT("CapsuleComp"));
 	RootComponent = CapsuleComp;
 	CapsuleComp->SetCapsuleSize(40.f, 40.f);
-	CapsuleComp->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	CapsuleComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	CapsuleComp->SetGenerateOverlapEvents(true);
 	CapsuleComp->SetCollisionObjectType(ECC_Pawn);
 	CapsuleComp->SetCollisionResponseToAllChannels(ECR_Ignore);
@@ -27,6 +27,7 @@ ASTR_RacerPawn::ASTR_RacerPawn()
 	CapsuleComp->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	CapsuleComp->SetCollisionResponseToChannel(ECC_Vehicle, ECR_Overlap);
 	CapsuleComp->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
+	CapsuleComp->SetNotifyRigidBodyCollision(true);
 
 	// 2. Setup du Sprite
 	//SpriteComp = CreateDefaultSubobject<UPaperSpriteComponent>(TEXT("SpriteComp"));
@@ -72,6 +73,11 @@ void ASTR_RacerPawn::BeginPlay()
 void ASTR_RacerPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (HitStunTimer > 0.f)
+	{
+		HitStunTimer -= DeltaTime;
+	}
 
 	if (TeleportFeedbackTimer > 0.f)
 	{
@@ -124,7 +130,7 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 	const bool bWantsDrift = bIsDriftButtonHeld;
 
 	// auto-accel = logique feature
-	const bool bShouldAccelerate = bAutoDriveEnabled;
+	const bool bShouldAccelerate = bAutoDriveEnabled && HitStunTimer <= 0.f;
 
 	if (!bAllowDrift && bIsDrifting)
 	{
@@ -195,7 +201,7 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 	}
 
 	//gestion du steering a haute et basse vitesse
-	CurrentSpeed = FMath::Clamp(CurrentSpeed, 0.f, EffectiveMaxSpeed);
+	CurrentSpeed = FMath::Clamp(CurrentSpeed, -600.f, EffectiveMaxSpeed);
 
 	const float SpeedRatio = FMath::Clamp(CurrentSpeed / MaxSpeed, 0.f, 1.f);
 	const float BaseTurnRate = FMath::Lerp(
@@ -222,21 +228,13 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 
 		const FVector DesiredVelocity = GetActorForwardVector() * CurrentSpeed;
 
+		// AJOUT CRUCIAL
 		MoveVelocity = FMath::VInterpTo(
 			MoveVelocity,
 			DesiredVelocity,
 			DeltaTime,
-			NormalGrip
+			10.f // ajuste entre 4 et 10
 		);
-
-		if (!MoveVelocity.IsNearlyZero())
-		{
-			MoveVelocity = MoveVelocity.GetSafeNormal() * CurrentSpeed;
-		}
-		else
-		{
-			MoveVelocity = DesiredVelocity;
-		}
 	}
 	else //mouvement en drift
 	{
@@ -719,34 +717,41 @@ void ASTR_RacerPawn::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 {
 	if (!OtherActor) return;
 
-	// cooldown
-	if (GetWorld()->TimeSeconds - LastHitTime < HitCooldown) return;
+	// Cooldown anti spam
+	if (GetWorld()->TimeSeconds - LastHitTime < HitCooldown)
+		return;
+
 	LastHitTime = GetWorld()->TimeSeconds;
 
-	// ignorer le sol
-	if (Hit.ImpactNormal.Z > 0.7f) return;
+	// Direction de collision
+	FVector KnockbackDir = Hit.ImpactNormal;
 
-	// vitesse trop faible ignore
-	if (CurrentSpeed < 200.f) return;
+	// Petit lift pour éviter de rester collé
+	KnockbackDir.Z += 0.25f;
+	KnockbackDir.Normalize();
 
-	// direction actuelle
-	FVector Forward = GetActorForwardVector();
+	// Détection du type de choc (face vs côté)
+	const float Dot = FVector::DotProduct(GetActorForwardVector(), KnockbackDir);
 
-	// réflexion
-	FVector BounceDir = FVector::VectorPlaneProject(Forward, Hit.ImpactNormal) * -1.f;
-	BounceDir.Z = 0.f;
-	BounceDir = BounceDir.GetSafeNormal();
+	// CHOC FRONTAL → recul réel
+	if (Dot < -0.3f)
+	{
+		CurrentSpeed = -900.f; // vitesse négative = recul
+	}
+	else
+	{
+		// CHOC LATÉRAL -> push
+		MoveVelocity += KnockbackDir * KnockbackStrength;
+	}
 
-	// tourner la voiture vers la nouvelle direction
-	FRotator NewRotation = BounceDir.Rotation();
-	SetActorRotation(NewRotation);
+	// Réduction de vitesse globale
+	CurrentSpeed *= 0.5f;
 
-	// ralentir
-	CurrentSpeed *= 0.6f;
+	// Stop drift
+	bIsDrifting = false;
 
-	// petit tilt visuel
-	FRotator Tilt = FRotator(0.f, 0.f, FMath::RandRange(-6.f, 6.f));
-	CarMesh->AddLocalRotation(Tilt);
+	// Petit stun pour éviter ré-accélération instantanée
+	HitStunTimer = 0.01f;
 }
 
 void ASTR_RacerPawn::TeleportBackToTrack()
