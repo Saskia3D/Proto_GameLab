@@ -2,7 +2,7 @@
 
 #include "BuffComponent.h"
 #include "Camera/CameraComponent.h"
-#include "Components/CapsuleComponent.h"
+#include "Components/BoxComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -16,28 +16,34 @@ ASTR_RacerPawn::ASTR_RacerPawn()
 	PrimaryActorTick.bCanEverTick = true;
 
 	// 1. Setup de la Capsule (Collision)
-	CapsuleComp = CreateDefaultSubobject<UCapsuleComponent>(TEXT("CapsuleComp"));
-	RootComponent = CapsuleComp;
-	CapsuleComp->SetCapsuleSize(40.f, 40.f);
-	CapsuleComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-	CapsuleComp->SetGenerateOverlapEvents(true);
-	CapsuleComp->SetCollisionObjectType(ECC_Pawn);
-	CapsuleComp->SetCollisionResponseToAllChannels(ECR_Ignore);
-	CapsuleComp->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
-	CapsuleComp->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-	CapsuleComp->SetCollisionResponseToChannel(ECC_Vehicle, ECR_Overlap);
-	CapsuleComp->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
-	CapsuleComp->SetNotifyRigidBodyCollision(true);
+	BoxComp = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxComp"));
+	RootComponent = BoxComp;
+	BoxComp->SetBoxExtent(FVector(120.f, 60.f, 40.f));
+	BoxComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	BoxComp->SetGenerateOverlapEvents(true);
+	BoxComp->SetCollisionObjectType(ECC_Pawn);
+	BoxComp->SetCollisionResponseToAllChannels(ECR_Ignore);
+	BoxComp->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
+	BoxComp->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	BoxComp->SetCollisionResponseToChannel(ECC_Vehicle, ECR_Overlap);
+	BoxComp->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
+	BoxComp->SetNotifyRigidBodyCollision(true);
+
+	BoxComp->SetHiddenInGame(false);
+	BoxComp->SetVisibility(true);
 
 	// 2. Setup du Sprite
 	//SpriteComp = CreateDefaultSubobject<UPaperSpriteComponent>(TEXT("SpriteComp"));
 	CarMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CarMesh"));
-	CarMesh->SetupAttachment(CapsuleComp);
+	CarMesh->SetupAttachment(BoxComp);
 	//SpriteComp->SetupAttachment(RootComponent);
 	CarMesh->SetRelativeRotation(FRotator(0.0f, -90.0f, 90.0f));
 	CarMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	CarMesh->SetGenerateOverlapEvents(false);
 	CarMesh->SetRelativeLocation(FVector(0.f, 0.f, -40.f));
+
+	CarMesh->SetHiddenInGame(false);
+	CarMesh->SetVisibility(true);
 
 	// 3. Setup de la Caméra
 	SpringArmComp = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArmComp"));
@@ -66,7 +72,7 @@ void ASTR_RacerPawn::BeginPlay()
 		UE_LOG(LogTemp, Warning, TEXT("[OFF TRACK] No TrackSplineActor found for %s"), *GetName());
 	}
 
-	CapsuleComp->OnComponentHit.AddDynamic(this, &ASTR_RacerPawn::OnHit);
+	BoxComp->OnComponentHit.AddDynamic(this, &ASTR_RacerPawn::OnHit);
 	EnsureMinimapWidget();
 }
 
@@ -406,11 +412,11 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 	const FVector Delta = MoveVelocity * DeltaTime;
 
 	FHitResult Hit;
-	CapsuleComp->MoveComponent(Delta, GetActorRotation(), true, &Hit);
+	BoxComp->MoveComponent(Delta, GetActorRotation(), true, &Hit);
 
 	if (DeltaTime > 0.f)
 	{
-		CapsuleComp->ComponentVelocity = MoveVelocity;
+		BoxComp->ComponentVelocity = MoveVelocity;
 	}
 
 	UpdateSafeRecoveryPoint();

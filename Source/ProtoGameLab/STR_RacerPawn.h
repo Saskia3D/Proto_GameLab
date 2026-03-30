@@ -7,7 +7,7 @@
 #include "STR_RacerPawn.generated.h"
 
 // Forward declarations
-class UCapsuleComponent;
+class UBoxComponent;
 class USpringArmComponent;
 class UCameraComponent;
 class UInputMappingContext;
@@ -36,7 +36,7 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	UCapsuleComponent* CapsuleComp;
+	UBoxComponent* BoxComp;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	//UPaperSpriteComponent* SpriteComp;
