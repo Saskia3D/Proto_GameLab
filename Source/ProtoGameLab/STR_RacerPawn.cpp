@@ -1,6 +1,7 @@
 #include "STR_RacerPawn.h"
 
 #include "BuffComponent.h"
+#include "ProjectileBuff.h"
 #include "Camera/CameraComponent.h"
 #include "Components/BoxComponent.h"
 #include "EnhancedInputComponent.h"
@@ -559,10 +560,24 @@ void ASTR_RacerPawn::UseItem(const FInputActionValue& Value)
 {
 	UE_LOG(LogTemp, Warning, TEXT("[ITEM] UseItem called on %s"), *GetName());
 
-	if (BuffComponent)
+	if (!BuffComponent) return;
+
+	if (UProjectileBuff* ProjectileBuff = Cast<UProjectileBuff>(BuffComponent->CurrentBuff))
 	{
-		BuffComponent->UseBuff();
+		if (ProjectileBuff->RemainingShots > 0) {
+
+			if (!ProjectileBuff->IsActive())
+			{
+				ProjectileBuff->Activate(this);
+			}
+
+			ProjectileBuff->FireProjectile();
+			return;
+		}
 	}
+
+
+	BuffComponent->UseBuff();
 }
 
 void ASTR_RacerPawn::PossessedBy(AController* NewController)
