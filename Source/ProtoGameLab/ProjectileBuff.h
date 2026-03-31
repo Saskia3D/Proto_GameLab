@@ -17,15 +17,17 @@ class PROTOGAMELAB_API UProjectileBuff : public UBuffBase
     GENERATED_BODY()
 
 public:
+    UProjectileBuff();
+
     virtual void Activate(APawn* Player) override;
 
     void FireProjectile();
-
-    int32 RemainingShots = 3;
 
 
 protected:
     UPROPERTY(EditDefaultsOnly)
     TSubclassOf<AProjectileActor> ProjectileClass;
+
+    int32 RemainingShots = 3;
 
 };

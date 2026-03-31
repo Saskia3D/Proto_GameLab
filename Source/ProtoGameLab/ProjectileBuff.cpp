@@ -7,8 +7,7 @@
 
 void UProjectileBuff::Activate(APawn* Player)
 {
-    CachedPlayer = Player;
-    bIsActive = true;
+    Super::Activate(Player);
 
     RemainingShots = 3;
 
@@ -19,6 +18,11 @@ void UProjectileBuff::Activate(APawn* Player)
 
     // Pas de timer de durée ici
     // Le buff reste jusqu'à ce que les tirs soient utilisés
+}
+
+UProjectileBuff::UProjectileBuff()
+{
+    Duration = 0.f; // empêche le timer
 }
 
 void UProjectileBuff::FireProjectile()

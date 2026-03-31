@@ -558,26 +558,30 @@ void ASTR_RacerPawn::Steer(const FInputActionValue& Value)
 
 void ASTR_RacerPawn::UseItem(const FInputActionValue& Value)
 {
-	UE_LOG(LogTemp, Warning, TEXT("[ITEM] UseItem called on %s"), *GetName());
-
 	if (!BuffComponent) return;
 
-	if (UProjectileBuff* ProjectileBuff = Cast<UProjectileBuff>(BuffComponent->CurrentBuff))
+	// Si buff projectile actif -> tirer
+	for (UBuffBase* Buff : BuffComponent->ActiveBuffs)
 	{
-		if (ProjectileBuff->RemainingShots > 0) {
-
-			if (!ProjectileBuff->IsActive())
-			{
-				ProjectileBuff->Activate(this);
-			}
-
+		if (UProjectileBuff* ProjectileBuff = Cast<UProjectileBuff>(Buff))
+		{
 			ProjectileBuff->FireProjectile();
 			return;
 		}
 	}
 
-
+	// Sinon -> activer le buff
 	BuffComponent->UseBuff();
+
+	// NOUVEAU : tirer immédiatement après activation
+	for (UBuffBase* Buff : BuffComponent->ActiveBuffs)
+	{
+		if (UProjectileBuff* ProjectileBuff = Cast<UProjectileBuff>(Buff))
+		{
+			ProjectileBuff->FireProjectile();
+			return;
+		}
+	}
 }
 
 void ASTR_RacerPawn::PossessedBy(AController* NewController)

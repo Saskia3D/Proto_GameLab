@@ -12,8 +12,11 @@ void UBuffBase::Activate(APawn* Player)
 
 	CachedPlayer = Player;
 	bIsActive = true;
+	
+	if (Duration > 0) {
+		StartDurationTimer();
+	}
 
-	StartDurationTimer();
 	/*
 	UWorld* World = Player->GetWorld();
 	if (!World) return;
