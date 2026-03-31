@@ -11,6 +11,8 @@
 #include "RaceMinimapWidget.h"
 #include "TrackSplineActor.h"
 #include "Kismet/GameplayStatics.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraSystem.h"
 
 ASTR_RacerPawn::ASTR_RacerPawn()
 {
@@ -777,6 +779,16 @@ void ASTR_RacerPawn::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 
 	// Petit stun pour éviter ré-accélération instantanée
 	HitStunTimer = 0.01f;
+
+	if (ImpactEffect)
+	{
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+			GetWorld(),
+			ImpactEffect,
+			Hit.ImpactPoint,
+			Hit.ImpactNormal.Rotation()
+		);
+	}
 }
 
 void ASTR_RacerPawn::TeleportBackToTrack()

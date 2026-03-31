@@ -17,6 +17,7 @@ class UPaperSprite;
 class UBuffComponent;
 class URaceMinimapWidget;
 class ATrackSplineActor;
+class UNiagaraSystem;
 
 UCLASS()
 class PROTOGAMELAB_API ASTR_RacerPawn : public APawn
@@ -120,6 +121,9 @@ public:
 		const FHitResult& Hit);
 
 	float HitStunTimer = 0.f;
+
+	UPROPERTY(EditAnywhere, Category = "VFX")
+	UNiagaraSystem* ImpactEffect;
 
 	//fonctions IA
 	UFUNCTION(BlueprintCallable, Category = "AI")
