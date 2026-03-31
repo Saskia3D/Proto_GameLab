@@ -19,6 +19,20 @@ class URaceMinimapWidget;
 class ATrackSplineActor;
 class UNiagaraSystem;
 
+enum class EDriftTuningParam : uint8
+{
+	TurnRateMultiplier,
+	BaseAutoSteer,
+	SameDirectionMultiplier,
+	OppositeDirectionMultiplier,
+	DriftGrip,
+	MaxDriftAngle,
+	DriftSpeedLossPerSecond,
+	DriftAccelMultiplier,
+	MinSpeedToStartDrift,
+	Count
+};
+
 UCLASS()
 class PROTOGAMELAB_API ASTR_RacerPawn : public APawn
 {
@@ -422,6 +436,21 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|Recovery")
 	float SafeRecoveryTrackRatio = 0.72f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug|DriftTuning")
+	bool bEnableRuntimeDriftTuning = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug|DriftTuning")
+	bool bShowRuntimeDriftTuningOnScreen = true;
+
+	EDriftTuningParam SelectedDriftTuningParam = EDriftTuningParam::TurnRateMultiplier;
+
+	void HandleRuntimeDriftTuning();
+	void CycleRuntimeDriftTuningParam(int32 Direction);
+	void AdjustRuntimeDriftTuningValue(float Direction);
+	FString GetRuntimeDriftTuningLabel() const;
+	float GetRuntimeDriftTuningValue() const;
+	void ShowRuntimeDriftTuningMessage() const;
 
 	void UpdateSafeRecoveryPoint();
 
