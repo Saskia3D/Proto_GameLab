@@ -23,6 +23,11 @@ AProjectileActor::AProjectileActor()
 void AProjectileActor::BeginPlay()
 {
     Super::BeginPlay();
+
+    if (GetOwner())
+    {
+        CollisionComp->IgnoreActorWhenMoving(GetOwner(), true);
+    }
 }
 
 void AProjectileActor::InitDirection(FVector Direction)

@@ -11,6 +11,8 @@
 #include "RaceMinimapWidget.h"
 #include "TrackSplineActor.h"
 #include "Kismet/GameplayStatics.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraSystem.h"
 
 ASTR_RacerPawn::ASTR_RacerPawn()
 {
@@ -558,26 +560,30 @@ void ASTR_RacerPawn::Steer(const FInputActionValue& Value)
 
 void ASTR_RacerPawn::UseItem(const FInputActionValue& Value)
 {
-	UE_LOG(LogTemp, Warning, TEXT("[ITEM] UseItem called on %s"), *GetName());
-
 	if (!BuffComponent) return;
 
-	if (UProjectileBuff* ProjectileBuff = Cast<UProjectileBuff>(BuffComponent->CurrentBuff))
+	// Si buff projectile actif -> tirer
+	for (UBuffBase* Buff : BuffComponent->ActiveBuffs)
 	{
-		if (ProjectileBuff->RemainingShots > 0) {
-
-			if (!ProjectileBuff->IsActive())
-			{
-				ProjectileBuff->Activate(this);
-			}
-
+		if (UProjectileBuff* ProjectileBuff = Cast<UProjectileBuff>(Buff))
+		{
 			ProjectileBuff->FireProjectile();
 			return;
 		}
 	}
 
-
+	// Sinon -> activer le buff
 	BuffComponent->UseBuff();
+
+	// NOUVEAU : tirer immédiatement après activation
+	for (UBuffBase* Buff : BuffComponent->ActiveBuffs)
+	{
+		if (UProjectileBuff* ProjectileBuff = Cast<UProjectileBuff>(Buff))
+		{
+			ProjectileBuff->FireProjectile();
+			return;
+		}
+	}
 }
 
 void ASTR_RacerPawn::PossessedBy(AController* NewController)
@@ -773,6 +779,16 @@ void ASTR_RacerPawn::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 
 	// Petit stun pour éviter ré-accélération instantanée
 	HitStunTimer = 0.01f;
+
+	if (ImpactEffect)
+	{
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+			GetWorld(),
+			ImpactEffect,
+			Hit.ImpactPoint,
+			Hit.ImpactNormal.Rotation()
+		);
+	}
 }
 
 void ASTR_RacerPawn::TeleportBackToTrack()
