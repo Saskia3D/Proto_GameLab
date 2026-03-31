@@ -17,6 +17,21 @@ class UPaperSprite;
 class UBuffComponent;
 class URaceMinimapWidget;
 class ATrackSplineActor;
+class UNiagaraSystem;
+
+enum class EDriftTuningParam : uint8
+{
+	TurnRateMultiplier,
+	BaseAutoSteer,
+	SameDirectionMultiplier,
+	OppositeDirectionMultiplier,
+	DriftGrip,
+	MaxDriftAngle,
+	DriftSpeedLossPerSecond,
+	DriftAccelMultiplier,
+	MinSpeedToStartDrift,
+	Count
+};
 
 UCLASS()
 class PROTOGAMELAB_API ASTR_RacerPawn : public APawn
@@ -120,6 +135,9 @@ public:
 		const FHitResult& Hit);
 
 	float HitStunTimer = 0.f;
+
+	UPROPERTY(EditAnywhere, Category = "VFX")
+	UNiagaraSystem* ImpactEffect;
 
 	//fonctions IA
 	UFUNCTION(BlueprintCallable, Category = "AI")
@@ -375,7 +393,7 @@ protected:
 	float OffTrackTime = 0.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
-	float OffTrackDetectionMargin = 650.f;
+	float OffTrackDetectionMargin = 635.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
 	float OffTrackPenaltyDelay = 0.35f;
@@ -390,7 +408,7 @@ protected:
 	float OffTrackExtraDeceleration = 350.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
-	float OffTrackTeleportDelay = 5.f;
+	float OffTrackTeleportDelay = 3.25f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
 	float RecoveryHeightOffset = 15.f;
@@ -418,6 +436,21 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|Recovery")
 	float SafeRecoveryTrackRatio = 0.72f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug|DriftTuning")
+	bool bEnableRuntimeDriftTuning = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug|DriftTuning")
+	bool bShowRuntimeDriftTuningOnScreen = true;
+
+	EDriftTuningParam SelectedDriftTuningParam = EDriftTuningParam::TurnRateMultiplier;
+
+	void HandleRuntimeDriftTuning();
+	void CycleRuntimeDriftTuningParam(int32 Direction);
+	void AdjustRuntimeDriftTuningValue(float Direction);
+	FString GetRuntimeDriftTuningLabel() const;
+	float GetRuntimeDriftTuningValue() const;
+	void ShowRuntimeDriftTuningMessage() const;
 
 	void UpdateSafeRecoveryPoint();
 

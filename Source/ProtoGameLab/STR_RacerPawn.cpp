@@ -11,6 +11,11 @@
 #include "RaceMinimapWidget.h"
 #include "TrackSplineActor.h"
 #include "Kismet/GameplayStatics.h"
+#include "GameFramework/PlayerController.h"
+#include "InputCoreTypes.h"
+#include "Engine/Engine.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraSystem.h"
 
 ASTR_RacerPawn::ASTR_RacerPawn()
 {
@@ -80,6 +85,7 @@ void ASTR_RacerPawn::BeginPlay()
 void ASTR_RacerPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	HandleRuntimeDriftTuning();
 
 	if (HitStunTimer > 0.f)
 	{
@@ -235,12 +241,11 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 
 		const FVector DesiredVelocity = GetActorForwardVector() * CurrentSpeed;
 
-		// AJOUT CRUCIAL
 		MoveVelocity = FMath::VInterpTo(
 			MoveVelocity,
 			DesiredVelocity,
 			DeltaTime,
-			10.f // ajuste entre 4 et 10
+			NormalGrip
 		);
 	}
 	else //mouvement en drift
@@ -558,26 +563,30 @@ void ASTR_RacerPawn::Steer(const FInputActionValue& Value)
 
 void ASTR_RacerPawn::UseItem(const FInputActionValue& Value)
 {
-	UE_LOG(LogTemp, Warning, TEXT("[ITEM] UseItem called on %s"), *GetName());
-
 	if (!BuffComponent) return;
 
-	if (UProjectileBuff* ProjectileBuff = Cast<UProjectileBuff>(BuffComponent->CurrentBuff))
+	// Si buff projectile actif -> tirer
+	for (UBuffBase* Buff : BuffComponent->ActiveBuffs)
 	{
-		if (ProjectileBuff->RemainingShots > 0) {
-
-			if (!ProjectileBuff->IsActive())
-			{
-				ProjectileBuff->Activate(this);
-			}
-
+		if (UProjectileBuff* ProjectileBuff = Cast<UProjectileBuff>(Buff))
+		{
 			ProjectileBuff->FireProjectile();
 			return;
 		}
 	}
 
-
+	// Sinon -> activer le buff
 	BuffComponent->UseBuff();
+
+	// NOUVEAU : tirer immédiatement après activation
+	for (UBuffBase* Buff : BuffComponent->ActiveBuffs)
+	{
+		if (UProjectileBuff* ProjectileBuff = Cast<UProjectileBuff>(Buff))
+		{
+			ProjectileBuff->FireProjectile();
+			return;
+		}
+	}
 }
 
 void ASTR_RacerPawn::PossessedBy(AController* NewController)
@@ -773,6 +782,16 @@ void ASTR_RacerPawn::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 
 	// Petit stun pour éviter ré-accélération instantanée
 	HitStunTimer = 0.01f;
+
+	if (ImpactEffect)
+	{
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+			GetWorld(),
+			ImpactEffect,
+			Hit.ImpactPoint,
+			Hit.ImpactNormal.Rotation()
+		);
+	}
 }
 
 void ASTR_RacerPawn::TeleportBackToTrack()
@@ -940,5 +959,209 @@ void ASTR_RacerPawn::StartDrift(const FInputActionValue& Value)
 void ASTR_RacerPawn::StopDrift(const FInputActionValue& Value)
 {
 	bIsDriftButtonHeld = false;
+}
+
+void ASTR_RacerPawn::HandleRuntimeDriftTuning()
+{
+	if (!bEnableRuntimeDriftTuning)
+	{
+		return;
+	}
+
+	APlayerController* PC = Cast<APlayerController>(GetController());
+	if (!PC || !PC->IsLocalController())
+	{
+		return;
+	}
+
+	ULocalPlayer* LP = PC->GetLocalPlayer();
+	if (!LP || LP->GetControllerId() != 0)
+	{
+		return;
+	}
+
+	if (PC->WasInputKeyJustPressed(EKeys::K))
+	{
+		CycleRuntimeDriftTuningParam(-1);
+		ShowRuntimeDriftTuningMessage();
+	}
+
+	if (PC->WasInputKeyJustPressed(EKeys::L))
+	{
+		CycleRuntimeDriftTuningParam(+1);
+		ShowRuntimeDriftTuningMessage();
+	}
+
+	if (PC->WasInputKeyJustPressed(EKeys::P))
+	{
+		AdjustRuntimeDriftTuningValue(+1.f);
+		ShowRuntimeDriftTuningMessage();
+	}
+
+	if (PC->WasInputKeyJustPressed(EKeys::O))
+	{
+		AdjustRuntimeDriftTuningValue(-1.f);
+		ShowRuntimeDriftTuningMessage();
+	}
+
+	if (PC->WasInputKeyJustPressed(EKeys::I))
+	{
+		ShowRuntimeDriftTuningMessage();
+	}
+}
+
+void ASTR_RacerPawn::CycleRuntimeDriftTuningParam(int32 Direction)
+{
+	const int32 Count = static_cast<int32>(EDriftTuningParam::Count);
+	int32 NewIndex = static_cast<int32>(SelectedDriftTuningParam) + Direction;
+
+	if (NewIndex < 0)
+	{
+		NewIndex = Count - 1;
+	}
+	else if (NewIndex >= Count)
+	{
+		NewIndex = 0;
+	}
+
+	SelectedDriftTuningParam = static_cast<EDriftTuningParam>(NewIndex);
+}
+
+void ASTR_RacerPawn::AdjustRuntimeDriftTuningValue(float Direction)
+{
+	switch (SelectedDriftTuningParam)
+	{
+	case EDriftTuningParam::TurnRateMultiplier:
+		DriftTurnRateMultiplier = FMath::Max(0.f, DriftTurnRateMultiplier + 0.5f * Direction);
+		break;
+
+	case EDriftTuningParam::BaseAutoSteer:
+		DriftBaseAutoSteer = FMath::Clamp(DriftBaseAutoSteer + 0.05f * Direction, 0.f, 1.f);
+		break;
+
+	case EDriftTuningParam::SameDirectionMultiplier:
+		DriftSteerSameDirectionMultiplier = FMath::Clamp(DriftSteerSameDirectionMultiplier + 0.05f * Direction, 0.f, 2.f);
+		break;
+
+	case EDriftTuningParam::OppositeDirectionMultiplier:
+		DriftSteerOppositeDirectionMultiplier = FMath::Clamp(DriftSteerOppositeDirectionMultiplier + 0.02f * Direction, 0.f, 1.f);
+		break;
+
+	case EDriftTuningParam::DriftGrip:
+		DriftGrip = FMath::Max(0.1f, DriftGrip + 0.5f * Direction);
+		break;
+
+	case EDriftTuningParam::MaxDriftAngle:
+		MaxDriftAngle = FMath::Clamp(MaxDriftAngle + 1.f * Direction, 0.f, 60.f);
+		break;
+
+	case EDriftTuningParam::DriftSpeedLossPerSecond:
+		DriftSpeedLossPerSecond = FMath::Max(0.f, DriftSpeedLossPerSecond + 25.f * Direction);
+		break;
+
+	case EDriftTuningParam::DriftAccelMultiplier:
+		DriftAccelMultiplier = FMath::Clamp(DriftAccelMultiplier + 0.05f * Direction, 0.f, 2.f);
+		break;
+
+	case EDriftTuningParam::MinSpeedToStartDrift:
+		MinSpeedToStartDrift = FMath::Max(0.f, MinSpeedToStartDrift + 25.f * Direction);
+		break;
+
+	default:
+		break;
+	}
+}
+
+FString ASTR_RacerPawn::GetRuntimeDriftTuningLabel() const
+{
+	switch (SelectedDriftTuningParam)
+	{
+	case EDriftTuningParam::TurnRateMultiplier:
+		return TEXT("DriftTurnRateMultiplier");
+
+	case EDriftTuningParam::BaseAutoSteer:
+		return TEXT("DriftBaseAutoSteer");
+
+	case EDriftTuningParam::SameDirectionMultiplier:
+		return TEXT("DriftSteerSameDirectionMultiplier");
+
+	case EDriftTuningParam::OppositeDirectionMultiplier:
+		return TEXT("DriftSteerOppositeDirectionMultiplier");
+
+	case EDriftTuningParam::DriftGrip:
+		return TEXT("DriftGrip");
+
+	case EDriftTuningParam::MaxDriftAngle:
+		return TEXT("MaxDriftAngle");
+
+	case EDriftTuningParam::DriftSpeedLossPerSecond:
+		return TEXT("DriftSpeedLossPerSecond");
+
+	case EDriftTuningParam::DriftAccelMultiplier:
+		return TEXT("DriftAccelMultiplier");
+
+	case EDriftTuningParam::MinSpeedToStartDrift:
+		return TEXT("MinSpeedToStartDrift");
+
+	default:
+		return TEXT("Unknown");
+	}
+}
+
+float ASTR_RacerPawn::GetRuntimeDriftTuningValue() const
+{
+	switch (SelectedDriftTuningParam)
+	{
+	case EDriftTuningParam::TurnRateMultiplier:
+		return DriftTurnRateMultiplier;
+
+	case EDriftTuningParam::BaseAutoSteer:
+		return DriftBaseAutoSteer;
+
+	case EDriftTuningParam::SameDirectionMultiplier:
+		return DriftSteerSameDirectionMultiplier;
+
+	case EDriftTuningParam::OppositeDirectionMultiplier:
+		return DriftSteerOppositeDirectionMultiplier;
+
+	case EDriftTuningParam::DriftGrip:
+		return DriftGrip;
+
+	case EDriftTuningParam::MaxDriftAngle:
+		return MaxDriftAngle;
+
+	case EDriftTuningParam::DriftSpeedLossPerSecond:
+		return DriftSpeedLossPerSecond;
+
+	case EDriftTuningParam::DriftAccelMultiplier:
+		return DriftAccelMultiplier;
+
+	case EDriftTuningParam::MinSpeedToStartDrift:
+		return MinSpeedToStartDrift;
+
+	default:
+		return 0.f;
+	}
+}
+
+void ASTR_RacerPawn::ShowRuntimeDriftTuningMessage() const
+{
+	const FString Msg = FString::Printf(
+		TEXT("[DRIFT TUNING] %s = %.2f | K/L: select | O/P: change | I: show"),
+		*GetRuntimeDriftTuningLabel(),
+		GetRuntimeDriftTuningValue()
+	);
+
+	UE_LOG(LogTemp, Warning, TEXT("%s"), *Msg);
+
+	if (GEngine && bShowRuntimeDriftTuningOnScreen)
+	{
+		GEngine->AddOnScreenDebugMessage(
+			424242,
+			2.0f,
+			FColor::Cyan,
+			Msg
+		);
+	}
 }
 
