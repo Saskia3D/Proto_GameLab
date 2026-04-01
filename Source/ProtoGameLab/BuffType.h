@@ -6,7 +6,7 @@
 UENUM(BlueprintType)
 enum class E_BuffType : uint8
 {
-    //None    UMETA(DisplayName = "None"),
+    None    UMETA(DisplayName = "None"),
     Turbo   UMETA(DisplayName = "Turbo"),
     TimeStop UMETA(DisplayName = "Time Stop"),
     Projectile  UMETA(DisplayName = "Projectile"),
