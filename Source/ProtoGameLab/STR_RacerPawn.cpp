@@ -1,8 +1,9 @@
 #include "STR_RacerPawn.h"
 
 #include "BuffComponent.h"
+#include "ProjectileBuff.h"
 #include "Camera/CameraComponent.h"
-#include "Components/CapsuleComponent.h"
+#include "Components/BoxComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -10,33 +11,45 @@
 #include "RaceMinimapWidget.h"
 #include "TrackSplineActor.h"
 #include "Kismet/GameplayStatics.h"
+#include "GameFramework/PlayerController.h"
+#include "InputCoreTypes.h"
+#include "Engine/Engine.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraSystem.h"
 
 ASTR_RacerPawn::ASTR_RacerPawn()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
 	// 1. Setup de la Capsule (Collision)
-	CapsuleComp = CreateDefaultSubobject<UCapsuleComponent>(TEXT("CapsuleComp"));
-	RootComponent = CapsuleComp;
-	CapsuleComp->SetCapsuleSize(40.f, 40.f);
-	CapsuleComp->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	CapsuleComp->SetGenerateOverlapEvents(true);
-	CapsuleComp->SetCollisionObjectType(ECC_Pawn);
-	CapsuleComp->SetCollisionResponseToAllChannels(ECR_Ignore);
-	CapsuleComp->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
-	CapsuleComp->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-	CapsuleComp->SetCollisionResponseToChannel(ECC_Vehicle, ECR_Overlap);
-	CapsuleComp->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
+	BoxComp = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxComp"));
+	RootComponent = BoxComp;
+	BoxComp->SetBoxExtent(FVector(120.f, 60.f, 40.f));
+	BoxComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	BoxComp->SetGenerateOverlapEvents(true);
+	BoxComp->SetCollisionObjectType(ECC_Pawn);
+	BoxComp->SetCollisionResponseToAllChannels(ECR_Ignore);
+	BoxComp->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
+	BoxComp->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	BoxComp->SetCollisionResponseToChannel(ECC_Vehicle, ECR_Overlap);
+	BoxComp->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
+	BoxComp->SetNotifyRigidBodyCollision(true);
+
+	BoxComp->SetHiddenInGame(false);
+	BoxComp->SetVisibility(true);
 
 	// 2. Setup du Sprite
 	//SpriteComp = CreateDefaultSubobject<UPaperSpriteComponent>(TEXT("SpriteComp"));
 	CarMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CarMesh"));
-	CarMesh->SetupAttachment(CapsuleComp);
+	CarMesh->SetupAttachment(BoxComp);
 	//SpriteComp->SetupAttachment(RootComponent);
 	CarMesh->SetRelativeRotation(FRotator(0.0f, -90.0f, 90.0f));
 	CarMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	CarMesh->SetGenerateOverlapEvents(false);
 	CarMesh->SetRelativeLocation(FVector(0.f, 0.f, -40.f));
+
+	CarMesh->SetHiddenInGame(false);
+	CarMesh->SetVisibility(true);
 
 	// 3. Setup de la Caméra
 	SpringArmComp = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArmComp"));
@@ -65,13 +78,19 @@ void ASTR_RacerPawn::BeginPlay()
 		UE_LOG(LogTemp, Warning, TEXT("[OFF TRACK] No TrackSplineActor found for %s"), *GetName());
 	}
 
-	CapsuleComp->OnComponentHit.AddDynamic(this, &ASTR_RacerPawn::OnHit);
+	BoxComp->OnComponentHit.AddDynamic(this, &ASTR_RacerPawn::OnHit);
 	EnsureMinimapWidget();
 }
 
 void ASTR_RacerPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	HandleRuntimeDriftTuning();
+
+	if (HitStunTimer > 0.f)
+	{
+		HitStunTimer -= DeltaTime;
+	}
 
 	if (TeleportFeedbackTimer > 0.f)
 	{
@@ -116,45 +135,63 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 		SteeringInterpSpeed
 	);
 
-	//variables de verifications au niveau du drift
 	const bool bHasSteerForDrift = FMath::Abs(CurrentSteeringInput) >= DriftSteerThreshold;
 	const bool bFastEnoughToStartDrift = CurrentSpeed >= MinSpeedToStartDrift;
 	const bool bFastEnoughToKeepDrift = CurrentSpeed >= MinDriftSpeed;
+
+	// drift = bouton drift seulement
+	const bool bWantsDrift = bIsDriftButtonHeld;
+
+	// auto-accel = logique feature
+	const bool bShouldAccelerate = bAutoDriveEnabled && HitStunTimer <= 0.f;
 
 	if (!bAllowDrift && bIsDrifting)
 	{
 		bIsDrifting = false;
 		DriftDirection = 0;
+		DriftChargeDirection = 0;
 		CurrentDriftAngle = 0.f;
 	}
 
-	//entree en drift
 	if (bAllowDrift && !bIsDrifting)
 	{
-		if (bIsBraking && bFastEnoughToStartDrift && bHasSteerForDrift)
+		if (bWantsDrift && bFastEnoughToStartDrift && bHasSteerForDrift)
 		{
 			bIsDrifting = true;
-			DriftDirection = (CurrentSteeringInput > 0.f) ? 1 : -1; // droite = 1, gauche = -1
+			DriftDirection = (CurrentSteeringInput > 0.f) ? 1 : -1;
+			DriftChargeDirection = DriftDirection;
 			bDriftBoostStillValid = true;
 		}
 	}
 	else
 	{
-		//gestion maintien du drift
-		const bool bHardCounterSteer =
-			(DriftDirection > 0 && CurrentSteeringInput < -DriftDirectionSwitchThreshold) ||
-			(DriftDirection < 0 && CurrentSteeringInput > DriftDirectionSwitchThreshold);
-
-		if (!bIsBraking || !bFastEnoughToKeepDrift || bHardCounterSteer)
+		if (!bWantsDrift || !bFastEnoughToKeepDrift)
 		{
 			bIsDrifting = false;
 			DriftDirection = 0;
+			DriftChargeDirection = 0;
 		}
 	}
 
 	if (bIsDrifting)
 	{
-		if (bIsAccelerating) // cas 1 : drift + accel
+		const int32 NewSteerDirection =
+			(CurrentSteeringInput > DriftDirectionSwitchThreshold) ? 1 :
+			(CurrentSteeringInput < -DriftDirectionSwitchThreshold) ? -1 : 0;
+
+		if (NewSteerDirection != 0 && DriftChargeDirection != 0 && NewSteerDirection != DriftChargeDirection)
+		{
+			DriftCharge = 0.f;
+			DriftHeldTime = 0.f;
+			DriftChargeDirection = NewSteerDirection;
+			DriftDirection = NewSteerDirection;
+			bDriftBoostStillValid = true;
+		}
+	}
+
+	if (bIsDrifting)
+	{
+		if (bShouldAccelerate)
 		{
 			CurrentSpeed += (
 				EffectiveAccelerationRate * DriftAccelMultiplier
@@ -162,38 +199,22 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 				- ExtraOffTrackDeceleration
 				) * DeltaTime;
 		}
-		else // cas 2 : drift sans accel
+		else
 		{
 			CurrentSpeed -= (EffectiveCoastingDeceleration + DriftSpeedLossPerSecond) * DeltaTime;
 		}
 	}
-	else if (bIsBraking) // brake normal
-	{
-		CurrentSpeed -= EffectiveBrakingDeceleration * DeltaTime;
-	}
-	else if (bIsAccelerating) // accel normal
+	else if (bShouldAccelerate)
 	{
 		CurrentSpeed += EffectiveAccelerationRate * DeltaTime;
 	}
-	else // aucune action de mouvement
+	else
 	{
 		CurrentSpeed -= EffectiveCoastingDeceleration * DeltaTime;
 	}
 
-	if (bIsDrifting && DriftDirection != 0)
-	{
-		const float SteeringAgainstDrift = CurrentSteeringInput * DriftDirection;
-
-		if (SteeringAgainstDrift < -DriftBoostInvalidationThreshold)
-		{
-			bDriftBoostStillValid = false;
-			DriftCharge = 0.f;
-		}
-	}
-
-
 	//gestion du steering a haute et basse vitesse
-	CurrentSpeed = FMath::Clamp(CurrentSpeed, 0.f, EffectiveMaxSpeed);
+	CurrentSpeed = FMath::Clamp(CurrentSpeed, -600.f, EffectiveMaxSpeed);
 
 	const float SpeedRatio = FMath::Clamp(CurrentSpeed / MaxSpeed, 0.f, 1.f);
 	const float BaseTurnRate = FMath::Lerp(
@@ -226,15 +247,6 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 			DeltaTime,
 			NormalGrip
 		);
-
-		if (!MoveVelocity.IsNearlyZero())
-		{
-			MoveVelocity = MoveVelocity.GetSafeNormal() * CurrentSpeed;
-		}
-		else
-		{
-			MoveVelocity = DesiredVelocity;
-		}
 	}
 	else //mouvement en drift
 	{
@@ -330,8 +342,11 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 		EffectiveBoostSteerInput = FMath::Clamp(EffectiveBoostSteerInput, -1.f, 1.f);
 	}
 
+	const bool bNeutralBoostSteer = FMath::IsNearlyZero(EffectiveBoostSteerInput, 0.01f);
 	const bool bCorrectSteerDirection =
-		(DriftDirection == 0) || (FMath::Sign(EffectiveBoostSteerInput) == DriftDirection);
+		bNeutralBoostSteer ||
+		(DriftChargeDirection == 0) ||
+		(FMath::Sign(EffectiveBoostSteerInput) == DriftChargeDirection);
 
 	const bool bRealDriftForBoost =
 		bIsDrifting &&
@@ -394,6 +409,7 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 		DriftCharge = 0.f;
 		DriftHeldTime = 0.f;
 		bDriftBoostStillValid = false;
+		DriftChargeDirection = 0;
 	}
 
 	bWasDriftingLastFrame = bIsDrifting;
@@ -402,11 +418,11 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 	const FVector Delta = MoveVelocity * DeltaTime;
 
 	FHitResult Hit;
-	CapsuleComp->MoveComponent(Delta, GetActorRotation(), true, &Hit);
+	BoxComp->MoveComponent(Delta, GetActorRotation(), true, &Hit);
 
 	if (DeltaTime > 0.f)
 	{
-		CapsuleComp->ComponentVelocity = MoveVelocity;
+		BoxComp->ComponentVelocity = MoveVelocity;
 	}
 
 	UpdateSafeRecoveryPoint();
@@ -520,18 +536,11 @@ void ASTR_RacerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 			EnhancedInputComponent->BindAction(SteerAction, ETriggerEvent::Canceled, this, &ASTR_RacerPawn::Steer);
 		}
 
-		if (AccelerateAction)
-		{
-			EnhancedInputComponent->BindAction(AccelerateAction, ETriggerEvent::Started, this, &ASTR_RacerPawn::StartAccelerate);
-			EnhancedInputComponent->BindAction(AccelerateAction, ETriggerEvent::Completed, this, &ASTR_RacerPawn::StopAccelerate);
-			EnhancedInputComponent->BindAction(AccelerateAction, ETriggerEvent::Canceled, this, &ASTR_RacerPawn::StopAccelerate);
-		}
-
 		if (BrakeAction)
 		{
-			EnhancedInputComponent->BindAction(BrakeAction, ETriggerEvent::Started, this, &ASTR_RacerPawn::StartBrake);
-			EnhancedInputComponent->BindAction(BrakeAction, ETriggerEvent::Completed, this, &ASTR_RacerPawn::StopBrake);
-			EnhancedInputComponent->BindAction(BrakeAction, ETriggerEvent::Canceled, this, &ASTR_RacerPawn::StopBrake);
+			EnhancedInputComponent->BindAction(BrakeAction, ETriggerEvent::Started, this, &ASTR_RacerPawn::StartDrift);
+			EnhancedInputComponent->BindAction(BrakeAction, ETriggerEvent::Completed, this, &ASTR_RacerPawn::StopDrift);
+			EnhancedInputComponent->BindAction(BrakeAction, ETriggerEvent::Canceled, this, &ASTR_RacerPawn::StopDrift);
 		}
 
 		if (ItemAction)
@@ -552,23 +561,31 @@ void ASTR_RacerPawn::Steer(const FInputActionValue& Value)
 	}
 }
 
-void ASTR_RacerPawn::StartBrake(const FInputActionValue& Value)
-{
-	bIsBraking = true;
-}
-
-void ASTR_RacerPawn::StopBrake(const FInputActionValue& Value)
-{
-	bIsBraking = false;
-}
-
 void ASTR_RacerPawn::UseItem(const FInputActionValue& Value)
 {
-	UE_LOG(LogTemp, Warning, TEXT("[ITEM] UseItem called on %s"), *GetName());
+	if (!BuffComponent) return;
 
-	if (BuffComponent)
+	// Si buff projectile actif -> tirer
+	for (UBuffBase* Buff : BuffComponent->ActiveBuffs)
 	{
-		BuffComponent->UseBuff();
+		if (UProjectileBuff* ProjectileBuff = Cast<UProjectileBuff>(Buff))
+		{
+			ProjectileBuff->FireProjectile();
+			return;
+		}
+	}
+
+	// Sinon -> activer le buff
+	BuffComponent->UseBuff();
+
+	// NOUVEAU : tirer immédiatement après activation
+	for (UBuffBase* Buff : BuffComponent->ActiveBuffs)
+	{
+		if (UProjectileBuff* ProjectileBuff = Cast<UProjectileBuff>(Buff))
+		{
+			ProjectileBuff->FireProjectile();
+			return;
+		}
 	}
 }
 
@@ -693,16 +710,6 @@ void ASTR_RacerPawn::StartDriftBoost(float BonusSpeed, float Duration)
 	CurrentSpeed = FMath::Min(CurrentSpeed + BonusSpeed, MaxSpeed + BonusSpeed);
 }
 
-void ASTR_RacerPawn::StartAccelerate(const FInputActionValue& Value)
-{
-	bIsAccelerating = true;
-}
-
-void ASTR_RacerPawn::StopAccelerate(const FInputActionValue& Value)
-{
-	bIsAccelerating = false;
-}
-
 void ASTR_RacerPawn::SetSteeringInput(float InSteer)
 {
 	TargetSteeringInput = FMath::Clamp(InSteer, -1.0f, 1.0f);
@@ -713,21 +720,10 @@ void ASTR_RacerPawn::SetSteeringInput(float InSteer)
 	}
 }
 
-void ASTR_RacerPawn::SetAcceleratingState(bool bShouldAccelerate)
-{
-	bIsAccelerating = bShouldAccelerate;
-}
-
-void ASTR_RacerPawn::SetBrakingState(bool bShouldBrake)
-{
-	bIsBraking = bShouldBrake;
-}
-
 void ASTR_RacerPawn::ClearDrivingInputs()
 {
 	TargetSteeringInput = 0.f;
-	bIsAccelerating = false;
-	bIsBraking = false;
+	bIsDriftButtonHeld = false;
 }
 
 void ASTR_RacerPawn::TriggerItemUse()
@@ -751,34 +747,51 @@ void ASTR_RacerPawn::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 {
 	if (!OtherActor) return;
 
-	// cooldown
-	if (GetWorld()->TimeSeconds - LastHitTime < HitCooldown) return;
+	// Cooldown anti spam
+	if (GetWorld()->TimeSeconds - LastHitTime < HitCooldown)
+		return;
+
 	LastHitTime = GetWorld()->TimeSeconds;
 
-	// ignorer le sol
-	if (Hit.ImpactNormal.Z > 0.7f) return;
+	// Direction de collision
+	FVector KnockbackDir = Hit.ImpactNormal;
 
-	// vitesse trop faible ignore
-	if (CurrentSpeed < 200.f) return;
+	// Petit lift pour éviter de rester collé
+	KnockbackDir.Z += 0.25f;
+	KnockbackDir.Normalize();
 
-	// direction actuelle
-	FVector Forward = GetActorForwardVector();
+	// Détection du type de choc (face vs côté)
+	const float Dot = FVector::DotProduct(GetActorForwardVector(), KnockbackDir);
 
-	// réflexion
-	FVector BounceDir = FVector::VectorPlaneProject(Forward, Hit.ImpactNormal) * -1.f;
-	BounceDir.Z = 0.f;
-	BounceDir = BounceDir.GetSafeNormal();
+	// CHOC FRONTAL → recul réel
+	if (Dot < -0.3f)
+	{
+		CurrentSpeed = -900.f; // vitesse négative = recul
+	}
+	else
+	{
+		// CHOC LATÉRAL -> push
+		MoveVelocity += KnockbackDir * KnockbackStrength;
+	}
 
-	// tourner la voiture vers la nouvelle direction
-	FRotator NewRotation = BounceDir.Rotation();
-	SetActorRotation(NewRotation);
+	// Réduction de vitesse globale
+	CurrentSpeed *= 0.5f;
 
-	// ralentir
-	CurrentSpeed *= 0.6f;
+	// Stop drift
+	bIsDrifting = false;
 
-	// petit tilt visuel
-	FRotator Tilt = FRotator(0.f, 0.f, FMath::RandRange(-6.f, 6.f));
-	CarMesh->AddLocalRotation(Tilt);
+	// Petit stun pour éviter ré-accélération instantanée
+	HitStunTimer = 0.01f;
+
+	if (ImpactEffect)
+	{
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+			GetWorld(),
+			ImpactEffect,
+			Hit.ImpactPoint,
+			Hit.ImpactNormal.Rotation()
+		);
+	}
 }
 
 void ASTR_RacerPawn::TeleportBackToTrack()
@@ -817,6 +830,7 @@ void ASTR_RacerPawn::TeleportBackToTrack()
 	CurrentDriftAngle = 0.f;
 	DriftCharge = 0.f;
 	DriftHeldTime = 0.f;
+	DriftChargeDirection = 0;
 	bWasDriftingLastFrame = false;
 	bDriftBoostStillValid = false;
 
@@ -924,6 +938,230 @@ void ASTR_RacerPawn::UpdateWrongWayState(float DeltaTime)
 		UE_LOG(LogTemp, Warning, TEXT("[WRONG WAY UI] %s -> %s"),
 			*GetName(),
 			bWrongWayWarningActive ? TEXT("SHOW WARNING") : TEXT("HIDE WARNING"));
+	}
+}
+
+void ASTR_RacerPawn::SetAutoDriveEnabled(bool bShouldAutoDrive)
+{
+	bAutoDriveEnabled = bShouldAutoDrive;
+}
+
+void ASTR_RacerPawn::SetDriftButtonHeld(bool bShouldHoldDrift)
+{
+	bIsDriftButtonHeld = bShouldHoldDrift;
+}
+
+void ASTR_RacerPawn::StartDrift(const FInputActionValue& Value)
+{
+	bIsDriftButtonHeld = true;
+}
+
+void ASTR_RacerPawn::StopDrift(const FInputActionValue& Value)
+{
+	bIsDriftButtonHeld = false;
+}
+
+void ASTR_RacerPawn::HandleRuntimeDriftTuning()
+{
+	if (!bEnableRuntimeDriftTuning)
+	{
+		return;
+	}
+
+	APlayerController* PC = Cast<APlayerController>(GetController());
+	if (!PC || !PC->IsLocalController())
+	{
+		return;
+	}
+
+	ULocalPlayer* LP = PC->GetLocalPlayer();
+	if (!LP || LP->GetControllerId() != 0)
+	{
+		return;
+	}
+
+	if (PC->WasInputKeyJustPressed(EKeys::K))
+	{
+		CycleRuntimeDriftTuningParam(-1);
+		ShowRuntimeDriftTuningMessage();
+	}
+
+	if (PC->WasInputKeyJustPressed(EKeys::L))
+	{
+		CycleRuntimeDriftTuningParam(+1);
+		ShowRuntimeDriftTuningMessage();
+	}
+
+	if (PC->WasInputKeyJustPressed(EKeys::P))
+	{
+		AdjustRuntimeDriftTuningValue(+1.f);
+		ShowRuntimeDriftTuningMessage();
+	}
+
+	if (PC->WasInputKeyJustPressed(EKeys::O))
+	{
+		AdjustRuntimeDriftTuningValue(-1.f);
+		ShowRuntimeDriftTuningMessage();
+	}
+
+	if (PC->WasInputKeyJustPressed(EKeys::I))
+	{
+		ShowRuntimeDriftTuningMessage();
+	}
+}
+
+void ASTR_RacerPawn::CycleRuntimeDriftTuningParam(int32 Direction)
+{
+	const int32 Count = static_cast<int32>(EDriftTuningParam::Count);
+	int32 NewIndex = static_cast<int32>(SelectedDriftTuningParam) + Direction;
+
+	if (NewIndex < 0)
+	{
+		NewIndex = Count - 1;
+	}
+	else if (NewIndex >= Count)
+	{
+		NewIndex = 0;
+	}
+
+	SelectedDriftTuningParam = static_cast<EDriftTuningParam>(NewIndex);
+}
+
+void ASTR_RacerPawn::AdjustRuntimeDriftTuningValue(float Direction)
+{
+	switch (SelectedDriftTuningParam)
+	{
+	case EDriftTuningParam::TurnRateMultiplier:
+		DriftTurnRateMultiplier = FMath::Max(0.f, DriftTurnRateMultiplier + 0.5f * Direction);
+		break;
+
+	case EDriftTuningParam::BaseAutoSteer:
+		DriftBaseAutoSteer = FMath::Clamp(DriftBaseAutoSteer + 0.05f * Direction, 0.f, 1.f);
+		break;
+
+	case EDriftTuningParam::SameDirectionMultiplier:
+		DriftSteerSameDirectionMultiplier = FMath::Clamp(DriftSteerSameDirectionMultiplier + 0.05f * Direction, 0.f, 2.f);
+		break;
+
+	case EDriftTuningParam::OppositeDirectionMultiplier:
+		DriftSteerOppositeDirectionMultiplier = FMath::Clamp(DriftSteerOppositeDirectionMultiplier + 0.02f * Direction, 0.f, 1.f);
+		break;
+
+	case EDriftTuningParam::DriftGrip:
+		DriftGrip = FMath::Max(0.1f, DriftGrip + 0.5f * Direction);
+		break;
+
+	case EDriftTuningParam::MaxDriftAngle:
+		MaxDriftAngle = FMath::Clamp(MaxDriftAngle + 1.f * Direction, 0.f, 60.f);
+		break;
+
+	case EDriftTuningParam::DriftSpeedLossPerSecond:
+		DriftSpeedLossPerSecond = FMath::Max(0.f, DriftSpeedLossPerSecond + 25.f * Direction);
+		break;
+
+	case EDriftTuningParam::DriftAccelMultiplier:
+		DriftAccelMultiplier = FMath::Clamp(DriftAccelMultiplier + 0.05f * Direction, 0.f, 2.f);
+		break;
+
+	case EDriftTuningParam::MinSpeedToStartDrift:
+		MinSpeedToStartDrift = FMath::Max(0.f, MinSpeedToStartDrift + 25.f * Direction);
+		break;
+
+	default:
+		break;
+	}
+}
+
+FString ASTR_RacerPawn::GetRuntimeDriftTuningLabel() const
+{
+	switch (SelectedDriftTuningParam)
+	{
+	case EDriftTuningParam::TurnRateMultiplier:
+		return TEXT("DriftTurnRateMultiplier");
+
+	case EDriftTuningParam::BaseAutoSteer:
+		return TEXT("DriftBaseAutoSteer");
+
+	case EDriftTuningParam::SameDirectionMultiplier:
+		return TEXT("DriftSteerSameDirectionMultiplier");
+
+	case EDriftTuningParam::OppositeDirectionMultiplier:
+		return TEXT("DriftSteerOppositeDirectionMultiplier");
+
+	case EDriftTuningParam::DriftGrip:
+		return TEXT("DriftGrip");
+
+	case EDriftTuningParam::MaxDriftAngle:
+		return TEXT("MaxDriftAngle");
+
+	case EDriftTuningParam::DriftSpeedLossPerSecond:
+		return TEXT("DriftSpeedLossPerSecond");
+
+	case EDriftTuningParam::DriftAccelMultiplier:
+		return TEXT("DriftAccelMultiplier");
+
+	case EDriftTuningParam::MinSpeedToStartDrift:
+		return TEXT("MinSpeedToStartDrift");
+
+	default:
+		return TEXT("Unknown");
+	}
+}
+
+float ASTR_RacerPawn::GetRuntimeDriftTuningValue() const
+{
+	switch (SelectedDriftTuningParam)
+	{
+	case EDriftTuningParam::TurnRateMultiplier:
+		return DriftTurnRateMultiplier;
+
+	case EDriftTuningParam::BaseAutoSteer:
+		return DriftBaseAutoSteer;
+
+	case EDriftTuningParam::SameDirectionMultiplier:
+		return DriftSteerSameDirectionMultiplier;
+
+	case EDriftTuningParam::OppositeDirectionMultiplier:
+		return DriftSteerOppositeDirectionMultiplier;
+
+	case EDriftTuningParam::DriftGrip:
+		return DriftGrip;
+
+	case EDriftTuningParam::MaxDriftAngle:
+		return MaxDriftAngle;
+
+	case EDriftTuningParam::DriftSpeedLossPerSecond:
+		return DriftSpeedLossPerSecond;
+
+	case EDriftTuningParam::DriftAccelMultiplier:
+		return DriftAccelMultiplier;
+
+	case EDriftTuningParam::MinSpeedToStartDrift:
+		return MinSpeedToStartDrift;
+
+	default:
+		return 0.f;
+	}
+}
+
+void ASTR_RacerPawn::ShowRuntimeDriftTuningMessage() const
+{
+	const FString Msg = FString::Printf(
+		TEXT("[DRIFT TUNING] %s = %.2f | K/L: select | O/P: change | I: show"),
+		*GetRuntimeDriftTuningLabel(),
+		GetRuntimeDriftTuningValue()
+	);
+
+	UE_LOG(LogTemp, Warning, TEXT("%s"), *Msg);
+
+	if (GEngine && bShowRuntimeDriftTuningOnScreen)
+	{
+		GEngine->AddOnScreenDebugMessage(
+			424242,
+			2.0f,
+			FColor::Cyan,
+			Msg
+		);
 	}
 }
 

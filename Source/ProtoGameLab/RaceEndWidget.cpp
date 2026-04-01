@@ -12,6 +12,8 @@
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
+#include "GameFramework/PlayerController.h"
+#include "GameFramework/PlayerInput.h"
 #include "Input/Events.h"
 #include "Input/Reply.h"
 #include "InputCoreTypes.h"
@@ -24,7 +26,7 @@ namespace
 	constexpr float ScoreTopPadding = 72.f;
 	constexpr float ContinueBottomPadding = 110.f;
 	constexpr float ActionTopPadding = 220.f;
-	constexpr float ScoreRowSpacing = 10.f;
+	constexpr float ScoreRowSpacing = 30.f;
 	constexpr float ScoreSettleDelay = 0.18f;
 	constexpr float ContinuePulseSpeed = 3.6f;
 
@@ -98,7 +100,13 @@ namespace
 	{
 		UTextBlock* TextBlock = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), *Name);
 		TextBlock->SetText(FText::FromString(Value));
-		StyleTextBlock(TextBlock, FontInfo, Color, Justification);
+		//ajout de la police rétro
+		FSlateFontInfo ForceRetroFont = FontInfo;
+		if (UObject* FontObj = LoadObject<UObject>(nullptr, TEXT("/Game/EndMenu/fonts/PressStart2P-Regular_Font.PressStart2P-Regular_Font")))
+		{
+			ForceRetroFont.FontObject = FontObj;
+		}
+		StyleTextBlock(TextBlock, ForceRetroFont, Color, Justification);
 		return TextBlock;
 	}
 
@@ -139,6 +147,7 @@ void URaceEndWidget::NativeConstruct()
 	StyleExistingMenuWidgets();
 	BuildRuntimeMenuChrome();
 	BuildRuntimeLeaderboard();
+	ResetAcceptInputGate(0.25f);
 	SetKeyboardFocus();
 }
 
@@ -146,6 +155,7 @@ void URaceEndWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
 
+	UpdateAcceptInputGate(InDeltaTime);
 	UpdateScoreAnimation(InDeltaTime);
 	UpdateContinuePrompt(InDeltaTime);
 }
@@ -158,6 +168,12 @@ bool URaceEndWidget::NativeSupportsKeyboardFocus() const
 FReply URaceEndWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
 	const FKey Key = InKeyEvent.GetKey();
+
+	if (IsAcceptKey(Key) && !bAcceptInputArmed)
+	{
+		bAcceptPressedDuringGate = true;
+		return FReply::Handled();
+	}
 
 	if (CurrentPage == ERaceEndPage::Scores)
 	{
@@ -209,14 +225,45 @@ FReply URaceEndWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEv
 	return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
 }
 
+FReply URaceEndWidget::NativeOnKeyUp(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+	const FKey Key = InKeyEvent.GetKey();
+
+	if (IsAcceptKey(Key) && !bAcceptInputArmed)
+	{
+		bAcceptPressedDuringGate = false;
+		if (AcceptInputArmDelayRemaining <= 0.f)
+		{
+			bAcceptInputArmed = true;
+		}
+
+		return FReply::Handled();
+	}
+
+	return Super::NativeOnKeyUp(InGeometry, InKeyEvent);
+}
+
 void URaceEndWidget::OnRestartClicked()
 {
-	UGameplayStatics::OpenLevel(this, FName("Lvl_Test_2Players"));
+	FName RestartLevel = FName("Lvl_Test_2Players");
+
+	if (const UWorld* World = GetWorld())
+	{
+		if (const UProtoGameLabGameInstance* GameInstance = Cast<UProtoGameLabGameInstance>(World->GetGameInstance()))
+		{
+			if (!GameInstance->GetLastRaceMapName().IsNone())
+			{
+				RestartLevel = GameInstance->GetLastRaceMapName();
+			}
+		}
+	}
+
+	OpenLevelWithCleanInput(RestartLevel, true);
 }
 
 void URaceEndWidget::OnMainMenuClicked()
 {
-	UGameplayStatics::OpenLevel(this, FName("MainMenu"));
+	OpenLevelWithCleanInput(FName("MainMenu"), false);
 }
 
 void URaceEndWidget::LoadLeaderboardEntries()
@@ -265,7 +312,7 @@ void URaceEndWidget::CacheThemeFont()
 
 	if (ThemeFontInfo.Size <= 0 && ThemeFontInfo.FontObject == nullptr)
 	{
-		if (UObject* MonoFont = LoadObject<UObject>(nullptr, TEXT("/Engine/EngineFonts/DroidSansMono.DroidSansMono")))
+		if (UObject* MonoFont = LoadObject<UObject>(nullptr, TEXT("/Game/EndMenu/fonts/PressStart2P-Regular_Font.PressStart2P-Regular_Font")))
 		{
 			ThemeFontInfo = FCoreStyle::GetDefaultFontStyle("Regular", 24);
 			ThemeFontInfo.FontObject = MonoFont;
@@ -377,7 +424,7 @@ void URaceEndWidget::BuildRuntimeMenuChrome()
 		WidgetTree,
 		TEXT("ContinuePrompt"),
 		TEXT("PRESS A TO CONTINUE"),
-		MakeThemeFont(20),
+		MakeThemeFont(30),
 		PlayerHighlightColor,
 		ETextJustify::Center
 	);
@@ -386,7 +433,7 @@ void URaceEndWidget::BuildRuntimeMenuChrome()
 	{
 		ContinueSlot->SetHorizontalAlignment(HAlign_Center);
 		ContinueSlot->SetVerticalAlignment(VAlign_Bottom);
-		ContinueSlot->SetPadding(FMargin(0.f, 0.f, 0.f, ContinueBottomPadding));
+		ContinueSlot->SetPadding(FMargin(0.f, 0.f, 0.f, 150.f));
 	}
 
 	ActionPageWidget = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass(), TEXT("RuntimeActionPage"));
@@ -395,8 +442,8 @@ void URaceEndWidget::BuildRuntimeMenuChrome()
 	UTextBlock* ActionTitle = CreateTextBlock(
 		WidgetTree,
 		TEXT("ActionTitle"),
-		TEXT("WHAT NEXT"),
-		MakeThemeFont(24),
+		TEXT("WHAT NEXT ?"),
+		MakeThemeFont(50),
 		DefaultTextColor,
 		ETextJustify::Center
 	);
@@ -408,7 +455,7 @@ void URaceEndWidget::BuildRuntimeMenuChrome()
 
 	RuntimeRestartButton = CreateInvisibleButton(WidgetTree, TEXT("RuntimeRestartButton"));
 	RuntimeRestartButton->OnClicked.AddDynamic(this, &URaceEndWidget::OnRestartClicked);
-	RuntimeRestartLabel = CreateTextBlock(WidgetTree, TEXT("RuntimeRestartLabel"), TEXT("RESTART"), MakeThemeFont(26), PlayerHighlightColor, ETextJustify::Center);
+	RuntimeRestartLabel = CreateTextBlock(WidgetTree, TEXT("RuntimeRestartLabel"), TEXT("RESTART"), MakeThemeFont(40), PlayerHighlightColor, ETextJustify::Center);
 	RuntimeRestartButton->AddChild(RuntimeRestartLabel);
 	if (UVerticalBoxSlot* RestartSlot = ActionPageWidget->AddChildToVerticalBox(RuntimeRestartButton))
 	{
@@ -418,7 +465,7 @@ void URaceEndWidget::BuildRuntimeMenuChrome()
 
 	RuntimeMainMenuButton = CreateInvisibleButton(WidgetTree, TEXT("RuntimeMainMenuButton"));
 	RuntimeMainMenuButton->OnClicked.AddDynamic(this, &URaceEndWidget::OnMainMenuClicked);
-	RuntimeMainMenuLabel = CreateTextBlock(WidgetTree, TEXT("RuntimeMainMenuLabel"), TEXT("MAIN MENU"), MakeThemeFont(26), DefaultTextColor, ETextJustify::Center);
+	RuntimeMainMenuLabel = CreateTextBlock(WidgetTree, TEXT("RuntimeMainMenuLabel"), TEXT("MAIN MENU"), MakeThemeFont(40), DefaultTextColor, ETextJustify::Center);
 	RuntimeMainMenuButton->AddChild(RuntimeMainMenuLabel);
 	if (UVerticalBoxSlot* MainMenuSlot = ActionPageWidget->AddChildToVerticalBox(RuntimeMainMenuButton))
 	{
@@ -428,8 +475,8 @@ void URaceEndWidget::BuildRuntimeMenuChrome()
 	if (UOverlaySlot* ActionSlot = RootOverlay->AddChildToOverlay(ActionPageWidget))
 	{
 		ActionSlot->SetHorizontalAlignment(HAlign_Center);
-		ActionSlot->SetVerticalAlignment(VAlign_Top);
-		ActionSlot->SetPadding(FMargin(0.f, ActionTopPadding, 0.f, 0.f));
+		ActionSlot->SetVerticalAlignment(VAlign_Center);
+		ActionSlot->SetPadding(FMargin(0.f, 0.f, 0.f, 0.f));
 	}
 
 	RuntimeMenuChromeWidget = RootOverlay;
@@ -459,19 +506,19 @@ void URaceEndWidget::BuildRuntimeLeaderboard()
 		WidgetTree,
 		TEXT("LeaderboardTitle"),
 		TEXT("HIGH SCORES"),
-		MakeThemeFont(38),
+		MakeThemeFont(60),
 		DefaultTextColor,
 		ETextJustify::Center
 	);
 	if (UVerticalBoxSlot* TitleSlot = ScorePageWidget->AddChildToVerticalBox(Title))
 	{
 		TitleSlot->SetHorizontalAlignment(HAlign_Center);
-		TitleSlot->SetPadding(FMargin(0.f, 0.f, 0.f, 18.f));
+		TitleSlot->SetPadding(FMargin(0.f, 100.f, 0.f, 50.f));
 	}
 
 	UHorizontalBox* HeaderRow = WidgetTree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass(), TEXT("LeaderboardHeaderRow"));
 
-	UTextBlock* RankHeader = CreateTextBlock(WidgetTree, TEXT("RankHeader"), TEXT("RANK"), MakeThemeFont(18), DefaultTextColor, ETextJustify::Center);
+	UTextBlock* RankHeader = CreateTextBlock(WidgetTree, TEXT("RankHeader"), TEXT("RANK"), MakeThemeFont(25), DefaultTextColor, ETextJustify::Center);
 	if (UHorizontalBoxSlot* RankHeaderSlot = HeaderRow->AddChildToHorizontalBox(RankHeader))
 	{
 		FSlateChildSize Size;
@@ -481,7 +528,7 @@ void URaceEndWidget::BuildRuntimeLeaderboard()
 		RankHeaderSlot->SetPadding(FMargin(10.f, 0.f));
 	}
 
-	UTextBlock* NameHeader = CreateTextBlock(WidgetTree, TEXT("NameHeader"), TEXT("NAME"), MakeThemeFont(18), DefaultTextColor, ETextJustify::Center);
+	UTextBlock* NameHeader = CreateTextBlock(WidgetTree, TEXT("NameHeader"), TEXT("NAME"), MakeThemeFont(25), DefaultTextColor, ETextJustify::Center);
 	if (UHorizontalBoxSlot* NameHeaderSlot = HeaderRow->AddChildToHorizontalBox(NameHeader))
 	{
 		FSlateChildSize Size;
@@ -491,7 +538,7 @@ void URaceEndWidget::BuildRuntimeLeaderboard()
 		NameHeaderSlot->SetPadding(FMargin(10.f, 0.f));
 	}
 
-	UTextBlock* ScoreHeader = CreateTextBlock(WidgetTree, TEXT("ScoreHeader"), TEXT("SCORE"), MakeThemeFont(18), DefaultTextColor, ETextJustify::Center);
+	UTextBlock* ScoreHeader = CreateTextBlock(WidgetTree, TEXT("ScoreHeader"), TEXT("SCORE"), MakeThemeFont(25), DefaultTextColor, ETextJustify::Center);
 	if (UHorizontalBoxSlot* ScoreHeaderSlot = HeaderRow->AddChildToHorizontalBox(ScoreHeader))
 	{
 		FSlateChildSize Size;
@@ -519,7 +566,7 @@ void URaceEndWidget::BuildRuntimeLeaderboard()
 			WidgetTree,
 			TEXT("LeaderboardEmpty"),
 			TEXT("NO SCORES RECORDED"),
-			MakeThemeFont(18),
+			MakeThemeFont(25),
 			DefaultTextColor,
 			ETextJustify::Center
 		);
@@ -541,7 +588,7 @@ void URaceEndWidget::BuildRuntimeLeaderboard()
 				WidgetTree,
 				*FString::Printf(TEXT("Rank_%d"), EntryIndex),
 				GetRetroRankText(Entry.Position),
-				MakeThemeFont(26),
+				MakeThemeFont(35),
 				RowColor,
 				ETextJustify::Center
 			);
@@ -558,7 +605,7 @@ void URaceEndWidget::BuildRuntimeLeaderboard()
 				WidgetTree,
 				*FString::Printf(TEXT("Name_%d"), EntryIndex),
 				Entry.PlayerName.ToUpper(),
-				MakeThemeFont(26),
+				MakeThemeFont(35),
 				RowColor,
 				ETextJustify::Center
 			);
@@ -575,7 +622,7 @@ void URaceEndWidget::BuildRuntimeLeaderboard()
 				WidgetTree,
 				*FString::Printf(TEXT("Score_%d"), EntryIndex),
 				FormatArcadeScore(0),
-				MakeThemeFont(26),
+				MakeThemeFont(35),
 				RowColor,
 				ETextJustify::Center
 			);
@@ -736,6 +783,7 @@ void URaceEndWidget::ShowActionPage()
 {
 	CurrentPage = ERaceEndPage::Actions;
 	SelectedActionIndex = 0;
+	ResetAcceptInputGate(0.18f);
 
 	if (ScorePageWidget)
 	{
@@ -785,4 +833,52 @@ void URaceEndWidget::UpdateContinuePrompt(const float DeltaTime)
 	ContinuePromptPulseTime += DeltaTime * ContinuePulseSpeed;
 	const float Alpha = 0.45f + (0.55f * ((FMath::Sin(ContinuePromptPulseTime) + 1.f) * 0.5f));
 	ContinuePromptText->SetRenderOpacity(Alpha);
+}
+
+void URaceEndWidget::UpdateAcceptInputGate(const float DeltaTime)
+{
+	if (bAcceptInputArmed)
+	{
+		return;
+	}
+
+	AcceptInputArmDelayRemaining = FMath::Max(0.f, AcceptInputArmDelayRemaining - DeltaTime);
+	if (AcceptInputArmDelayRemaining <= 0.f && !bAcceptPressedDuringGate)
+	{
+		bAcceptInputArmed = true;
+	}
+}
+
+void URaceEndWidget::ResetAcceptInputGate(const float ArmDelaySeconds)
+{
+	AcceptInputArmDelayRemaining = FMath::Max(0.f, ArmDelaySeconds);
+	bAcceptInputArmed = false;
+	bAcceptPressedDuringGate = false;
+}
+
+void URaceEndWidget::OpenLevelWithCleanInput(const FName LevelName, const bool bPrepareGameInput)
+{
+	APlayerController* PC = GetOwningPlayer();
+	if (!PC)
+	{
+		PC = UGameplayStatics::GetPlayerController(this, 0);
+	}
+
+	if (PC)
+	{
+		if (PC->PlayerInput)
+		{
+			PC->PlayerInput->FlushPressedKeys();
+		}
+
+		if (bPrepareGameInput)
+		{
+			FInputModeGameOnly GameOnlyInputMode;
+			PC->SetInputMode(GameOnlyInputMode);
+		}
+
+		PC->bShowMouseCursor = false;
+	}
+
+	UGameplayStatics::OpenLevel(this, LevelName);
 }

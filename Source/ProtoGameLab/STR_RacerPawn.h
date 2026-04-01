@@ -3,11 +3,12 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
 #include "InputActionValue.h"
+#include "BuffType.h"
 #include "Components/StaticMeshComponent.h"
 #include "STR_RacerPawn.generated.h"
 
 // Forward declarations
-class UCapsuleComponent;
+class UBoxComponent;
 class USpringArmComponent;
 class UCameraComponent;
 class UInputMappingContext;
@@ -17,6 +18,21 @@ class UPaperSprite;
 class UBuffComponent;
 class URaceMinimapWidget;
 class ATrackSplineActor;
+class UNiagaraSystem;
+
+enum class EDriftTuningParam : uint8
+{
+	TurnRateMultiplier,
+	BaseAutoSteer,
+	SameDirectionMultiplier,
+	OppositeDirectionMultiplier,
+	DriftGrip,
+	MaxDriftAngle,
+	DriftSpeedLossPerSecond,
+	DriftAccelMultiplier,
+	MinSpeedToStartDrift,
+	Count
+};
 
 UCLASS()
 class PROTOGAMELAB_API ASTR_RacerPawn : public APawn
@@ -36,7 +52,7 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	UCapsuleComponent* CapsuleComp;
+	UBoxComponent* BoxComp;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	//UPaperSpriteComponent* SpriteComp;
@@ -59,9 +75,6 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* ItemAction;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	UInputAction* AccelerateAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float MaxSpeed = 1245.0f;
@@ -105,25 +118,35 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Movement")
 	float GetCurrentSpeed() const { return CurrentSpeed; }
 
-	float LastHitTime = 0.f;
+	//Ref Pawns
+	UPROPERTY(BlueprintReadWrite, Category = "Buff")
+	E_BuffType CurrentBuff;
 
-	UPROPERTY(EditAnywhere, Category = "Collision")
-	float HitCooldown = 0.2f;
+	// Knockback
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision")
+	float KnockbackStrength = 600.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision")
+	float KnockbackVerticalBoost = 120.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision")
+	float HitCooldown = 0.35f;
+
+	float LastHitTime = -100.f;
 
 	UFUNCTION()
 	void OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 		UPrimitiveComponent* OtherComp, FVector NormalImpulse,
 		const FHitResult& Hit);
 
+	float HitStunTimer = 0.f;
+
+	UPROPERTY(EditAnywhere, Category = "VFX")
+	UNiagaraSystem* ImpactEffect;
+
 	//fonctions IA
 	UFUNCTION(BlueprintCallable, Category = "AI")
 	void SetSteeringInput(float InSteer);
-
-	UFUNCTION(BlueprintCallable, Category = "AI")
-	void SetAcceleratingState(bool bShouldAccelerate);
-
-	UFUNCTION(BlueprintCallable, Category = "AI")
-	void SetBrakingState(bool bShouldBrake);
 
 	UFUNCTION(BlueprintCallable, Category = "AI")
 	void ClearDrivingInputs();
@@ -133,6 +156,12 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "AI")
 	bool HasBuff() const;
+
+	UFUNCTION(BlueprintCallable, Category = "AI")
+	void SetAutoDriveEnabled(bool bShouldAutoDrive);
+
+	UFUNCTION(BlueprintCallable, Category = "AI")
+	void SetDriftButtonHeld(bool bShouldHoldDrift);
 
 	UFUNCTION(BlueprintPure, Category = "UI|Drift")
 	bool IsDrifting() const { return bIsDrifting; }
@@ -213,15 +242,13 @@ protected:
 	float TargetSteeringInput = 0.f;
 	float CurrentSteeringInput = 0.f;
 
-	bool bIsBraking = false;
-	bool bIsAccelerating = false;
+	bool bIsDriftButtonHeld = false;
+	bool bAutoDriveEnabled = true;
 
 	void Steer(const FInputActionValue& Value);
-	void StartBrake(const FInputActionValue& Value);
-	void StopBrake(const FInputActionValue& Value);
+	void StartDrift(const FInputActionValue& Value);
+	void StopDrift(const FInputActionValue& Value);
 	void UseItem(const FInputActionValue& Value);
-	void StartAccelerate(const FInputActionValue& Value);
-	void StopAccelerate(const FInputActionValue& Value);
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|Drift")
 	bool bIsDrifting = false;
@@ -275,6 +302,9 @@ protected:
 	float DriftSteerOppositeDirectionMultiplier = 0.05f;
 
 	int32 DriftDirection = 0;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|DriftBoost")
+	int32 DriftChargeDirection = 0;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|DriftBoost")
 	float DriftCharge = 0.f;
@@ -368,7 +398,7 @@ protected:
 	float OffTrackTime = 0.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
-	float OffTrackDetectionMargin = 650.f;
+	float OffTrackDetectionMargin = 635.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
 	float OffTrackPenaltyDelay = 0.35f;
@@ -383,7 +413,7 @@ protected:
 	float OffTrackExtraDeceleration = 350.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
-	float OffTrackTeleportDelay = 5.f;
+	float OffTrackTeleportDelay = 3.25f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
 	float RecoveryHeightOffset = 15.f;
@@ -411,6 +441,21 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|Recovery")
 	float SafeRecoveryTrackRatio = 0.72f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug|DriftTuning")
+	bool bEnableRuntimeDriftTuning = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug|DriftTuning")
+	bool bShowRuntimeDriftTuningOnScreen = true;
+
+	EDriftTuningParam SelectedDriftTuningParam = EDriftTuningParam::TurnRateMultiplier;
+
+	void HandleRuntimeDriftTuning();
+	void CycleRuntimeDriftTuningParam(int32 Direction);
+	void AdjustRuntimeDriftTuningValue(float Direction);
+	FString GetRuntimeDriftTuningLabel() const;
+	float GetRuntimeDriftTuningValue() const;
+	void ShowRuntimeDriftTuningMessage() const;
 
 	void UpdateSafeRecoveryPoint();
 

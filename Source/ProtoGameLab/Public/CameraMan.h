@@ -52,4 +52,12 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Camera")
 	float OrthoWidth = 6000.f;
+
+	UPROPERTY(EditAnywhere, Category = "SplitScreen")
+	float SplitDistance = 3000.f;
+
+	UPROPERTY(EditAnywhere, Category = "SplitScreen")
+	float MergeDistance = 2500.f;
+
+	bool bIsSplitScreenActive = false;
 };

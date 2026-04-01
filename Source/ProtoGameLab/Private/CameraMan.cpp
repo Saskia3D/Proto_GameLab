@@ -28,11 +28,14 @@ void ACamManager::BeginPlay()
 {
 	Super::BeginPlay();
 
-	APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
-	if (PC)
+	for (int32 i = 0; i < 2; i++)
 	{
-		PC->bAutoManageActiveCameraTarget = false;
-		PC->SetViewTarget(this);
+		APlayerController* PC = UGameplayStatics::GetPlayerController(this, i);
+		if (PC)
+		{
+			PC->bAutoManageActiveCameraTarget = false;
+			PC->SetViewTarget(this);
+		}
 	}
 }
 
@@ -46,10 +49,74 @@ void ACamManager::Tick(float DeltaTime)
 	Players.RemoveAll([](AActor* Actor)
 		{
 			APawn* Pawn = Cast<APawn>(Actor);
-			return !Pawn || !Pawn->IsPlayerControlled();
+			return !Pawn; //|| !Pawn->IsPlayerControlled();
 		});
 
 	if (Players.Num() == 0) return;
+
+	if (Players.Num() < 2) return;
+
+	AActor* P1 = Players[0];
+	AActor* P2 = Players[1];
+
+	// Distance + anticipation vitesse
+	float SpeedBoost = (Cast<APawn>(P1)->GetVelocity().Size() + Cast<APawn>(P2)->GetVelocity().Size()) * 0.25f;
+	float Distance = FVector::Dist(P1->GetActorLocation(), P2->GetActorLocation()) + SpeedBoost;
+
+	// Gestion split / merge
+
+	if (!bIsSplitScreenActive && Distance > SplitDistance)
+	{
+		bIsSplitScreenActive = true;
+
+		APlayerController* PC0 = UGameplayStatics::GetPlayerController(this, 0);
+		APlayerController* PC1 = UGameplayStatics::GetPlayerController(this, 1);
+
+		if (PC0 && PC0->GetPawn())
+		{
+			PC0->SetViewTarget(PC0->GetPawn());
+		}
+
+		if (PC1 && PC1->GetPawn())
+		{
+			PC1->SetViewTarget(PC1->GetPawn());
+		}
+
+		SetActorHiddenInGame(true);
+		return;
+	}
+	else if (bIsSplitScreenActive && Distance < MergeDistance)
+	{
+		bIsSplitScreenActive = false;
+
+		for (int32 i = 0; i < 2; i++)
+		{
+			APlayerController* PC = UGameplayStatics::GetPlayerController(this, i);
+			if (PC)
+			{
+				PC->SetViewTarget(this);
+			}
+		}
+
+		SetActorHiddenInGame(false);
+	}
+
+	float TargetOrtho = OrthoWidth;
+
+	if (!bIsSplitScreenActive)
+	{
+		// écran divisé -> chaque joueur a une moitié
+		// donc on réduit pour compenser
+		TargetOrtho = OrthoWidth * 0.5f;
+	}
+
+	// interpolation pour éviter un snap brutal
+	Camera->OrthoWidth = FMath::FInterpTo(
+		Camera->OrthoWidth,
+		TargetOrtho,
+		DeltaTime,
+		2.0f
+	);
 
 	FVector Midpoint = FVector::ZeroVector;
 	FVector AvgVelocity = FVector::ZeroVector;

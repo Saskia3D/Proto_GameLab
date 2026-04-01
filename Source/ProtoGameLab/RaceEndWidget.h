@@ -54,6 +54,7 @@ protected:
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 	virtual bool NativeSupportsKeyboardFocus() const override;
 	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
+	virtual FReply NativeOnKeyUp(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Leaderboard")
 	TArray<FRaceLeaderboardEntry> LeaderboardEntries;
@@ -119,7 +120,10 @@ private:
 	int32 SelectedActionIndex = 0;
 	float RowSettleDelayRemaining = 0.f;
 	float ContinuePromptPulseTime = 0.f;
+	float AcceptInputArmDelayRemaining = 0.f;
 	bool bCanAdvanceFromScores = false;
+	bool bAcceptInputArmed = false;
+	bool bAcceptPressedDuringGate = false;
 
 	void LoadLeaderboardEntries();
 	void CacheThemeFont();
@@ -135,4 +139,7 @@ private:
 	void ShowActionPage();
 	void ApplyActionSelectionVisuals();
 	void UpdateContinuePrompt(float DeltaTime);
+	void UpdateAcceptInputGate(float DeltaTime);
+	void ResetAcceptInputGate(float ArmDelaySeconds);
+	void OpenLevelWithCleanInput(FName LevelName, bool bPrepareGameInput);
 };

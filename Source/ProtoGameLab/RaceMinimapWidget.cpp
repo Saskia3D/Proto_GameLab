@@ -64,7 +64,7 @@ void URaceMinimapWidget::RefreshTrackCache()
 		const FVector SampleLocation = CachedTrackSpline->Spline->GetLocationAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World);
 
 		CachedSplineSamples.Add(SampleLocation);
-		CachedWorldBounds += FVector2D(SampleLocation.X, SampleLocation.Y);
+		CachedWorldBounds += ProjectWorldToTrackSpace(SampleLocation);
 	}
 
 	if (CachedWorldBounds.bIsValid)
@@ -88,6 +88,18 @@ void URaceMinimapWidget::RefreshTrackCache()
 	}
 }
 
+FVector2D URaceMinimapWidget::ProjectWorldToTrackSpace(const FVector& WorldLocation) const
+{
+	if (bUseCameraAlignedAxes)
+	{
+		// Align the minimap with the top-down camera so the track feels consistent
+		// with the player's screen-space left/right movement.
+		return FVector2D(WorldLocation.Y, WorldLocation.X);
+	}
+
+	return FVector2D(WorldLocation.X, WorldLocation.Y);
+}
+
 FVector2D URaceMinimapWidget::ProjectWorldToMinimap(const FVector& WorldLocation, const FVector2D& BoxOrigin, const FVector2D& BoxSize) const
 {
 	if (!bHasValidTrackCache)
@@ -108,10 +120,47 @@ FVector2D URaceMinimapWidget::ProjectWorldToMinimap(const FVector& WorldLocation
 	const FVector2D ScaledBoundsSize = BoundsSize * Scale;
 	const FVector2D CenteringOffset = (ContentSize - ScaledBoundsSize) * 0.5f;
 
-	const float NormalizedX = static_cast<float>(WorldLocation.X) - CachedWorldBounds.Min.X;
-	const float NormalizedY = CachedWorldBounds.Max.Y - static_cast<float>(WorldLocation.Y);
+	const FVector2D TrackSpaceLocation = ProjectWorldToTrackSpace(WorldLocation);
+	float NormalizedX = (TrackSpaceLocation.X - CachedWorldBounds.Min.X) / BoundsSize.X;
+	float NormalizedY = (TrackSpaceLocation.Y - CachedWorldBounds.Min.Y) / BoundsSize.Y;
 
-	return ContentOrigin + CenteringOffset + FVector2D(NormalizedX * Scale, NormalizedY * Scale);
+	if (bFlipHorizontally)
+	{
+		NormalizedX = 1.f - NormalizedX;
+	}
+
+	if (bFlipVertically)
+	{
+		NormalizedY = 1.f - NormalizedY;
+	}
+
+	NormalizedX = FMath::Clamp(NormalizedX, 0.f, 1.f);
+	NormalizedY = FMath::Clamp(NormalizedY, 0.f, 1.f);
+
+	return ContentOrigin + CenteringOffset + FVector2D(NormalizedX * ScaledBoundsSize.X, NormalizedY * ScaledBoundsSize.Y);
+}
+
+FVector2D URaceMinimapWidget::ResolveMinimapOrigin(const FVector2D& ViewSize, const FVector2D& BoxSize) const
+{
+	FVector2D Origin(HorizontalPadding, VerticalPadding);
+
+	switch (ScreenCorner)
+	{
+	case EMinimapScreenCorner::TopRight:
+		Origin = FVector2D(ViewSize.X - HorizontalPadding - BoxSize.X, VerticalPadding);
+		break;
+	case EMinimapScreenCorner::BottomLeft:
+		Origin = FVector2D(HorizontalPadding, ViewSize.Y - VerticalPadding - BoxSize.Y);
+		break;
+	case EMinimapScreenCorner::BottomRight:
+		Origin = FVector2D(ViewSize.X - HorizontalPadding - BoxSize.X, ViewSize.Y - VerticalPadding - BoxSize.Y);
+		break;
+	case EMinimapScreenCorner::TopLeft:
+	default:
+		break;
+	}
+
+	return Origin;
 }
 
 int32 URaceMinimapWidget::NativePaint(
@@ -131,7 +180,7 @@ int32 URaceMinimapWidget::NativePaint(
 	}
 
 	const FVector2D BoxSize(MinimapSize, MinimapSize);
-	const FVector2D BoxOrigin(ViewSize.X - ScreenPadding - BoxSize.X, ScreenPadding);
+	const FVector2D BoxOrigin = ResolveMinimapOrigin(ViewSize, BoxSize);
 
 	const FSlateBrush* WhiteBrush = FCoreStyle::Get().GetBrush("WhiteBrush");
 

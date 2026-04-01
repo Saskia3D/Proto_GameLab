@@ -6,6 +6,15 @@
 
 class ATrackSplineActor;
 
+UENUM(BlueprintType)
+enum class EMinimapScreenCorner : uint8
+{
+	TopLeft,
+	TopRight,
+	BottomLeft,
+	BottomRight
+};
+
 UCLASS()
 class PROTOGAMELAB_API URaceMinimapWidget : public UUserWidget
 {
@@ -25,10 +34,25 @@ public:
 	) const override;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap")
-	float MinimapSize = 230.f;
+	float MinimapSize = 190.f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap")
-	float ScreenPadding = 28.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap|Layout")
+	EMinimapScreenCorner ScreenCorner = EMinimapScreenCorner::BottomLeft;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap|Layout")
+	float HorizontalPadding = 28.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap|Layout")
+	float VerticalPadding = 28.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap|Layout")
+	bool bUseCameraAlignedAxes = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap|Layout")
+	bool bFlipHorizontally = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap|Layout")
+	bool bFlipVertically = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap")
 	float InnerPadding = 18.f;
@@ -69,5 +93,7 @@ private:
 	bool bHasValidTrackCache = false;
 
 	void RefreshTrackCache();
+	FVector2D ProjectWorldToTrackSpace(const FVector& WorldLocation) const;
 	FVector2D ProjectWorldToMinimap(const FVector& WorldLocation, const FVector2D& BoxOrigin, const FVector2D& BoxSize) const;
+	FVector2D ResolveMinimapOrigin(const FVector2D& ViewSize, const FVector2D& BoxSize) const;
 };
