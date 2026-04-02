@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
 #include "InputActionValue.h"
+#include "BuffType.h"
 #include "Components/StaticMeshComponent.h"
 #include "STR_RacerPawn.generated.h"
 
@@ -116,6 +117,10 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Movement")
 	float GetCurrentSpeed() const { return CurrentSpeed; }
+
+	//Ref Pawns
+	UPROPERTY(BlueprintReadWrite, Category = "Buff")
+	E_BuffType CurrentBuff;
 
 	// Knockback
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision")
