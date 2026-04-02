@@ -1,6 +1,7 @@
 #include "STR_RacerPawn.h"
 
 #include "BuffComponent.h"
+#include "BuffBase.h"
 #include "ProjectileBuff.h"
 #include "Camera/CameraComponent.h"
 #include "Components/BoxComponent.h"
@@ -16,6 +17,27 @@
 #include "Engine/Engine.h"
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraSystem.h"
+
+namespace
+{
+	UProjectileBuff* FindActiveProjectileBuff(UBuffComponent* BuffComponent)
+	{
+		if (!BuffComponent)
+		{
+			return nullptr;
+		}
+
+		for (UBuffBase* Buff : BuffComponent->ActiveBuffs)
+		{
+			if (UProjectileBuff* ProjectileBuff = Cast<UProjectileBuff>(Buff))
+			{
+				return ProjectileBuff;
+			}
+		}
+
+		return nullptr;
+	}
+}
 
 ASTR_RacerPawn::ASTR_RacerPawn()
 {
@@ -418,7 +440,7 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 	const FVector Delta = MoveVelocity * DeltaTime;
 
 	FHitResult Hit;
-	BoxComp->MoveComponent(Delta, GetActorRotation(), true, &Hit);
+	BoxComp->MoveComponent(Delta, GetActorRotation(), !bIgnoreObstacleHits, &Hit);
 
 	if (DeltaTime > 0.f)
 	{
@@ -565,27 +587,25 @@ void ASTR_RacerPawn::UseItem(const FInputActionValue& Value)
 {
 	if (!BuffComponent) return;
 
-	// Si buff projectile actif -> tirer
-	for (UBuffBase* Buff : BuffComponent->ActiveBuffs)
+	if (BuffComponent->CurrentBuff)
 	{
-		if (UProjectileBuff* ProjectileBuff = Cast<UProjectileBuff>(Buff))
+		const bool bStoredProjectile = Cast<UProjectileBuff>(BuffComponent->CurrentBuff) != nullptr;
+		BuffComponent->UseBuff();
+
+		if (bStoredProjectile)
 		{
-			ProjectileBuff->FireProjectile();
-			return;
+			if (UProjectileBuff* ProjectileBuff = FindActiveProjectileBuff(BuffComponent))
+			{
+				ProjectileBuff->FireProjectile();
+			}
 		}
+
+		return;
 	}
 
-	// Sinon -> activer le buff
-	BuffComponent->UseBuff();
-
-	// NOUVEAU : tirer immédiatement après activation
-	for (UBuffBase* Buff : BuffComponent->ActiveBuffs)
+	if (UProjectileBuff* ProjectileBuff = FindActiveProjectileBuff(BuffComponent))
 	{
-		if (UProjectileBuff* ProjectileBuff = Cast<UProjectileBuff>(Buff))
-		{
-			ProjectileBuff->FireProjectile();
-			return;
-		}
+		ProjectileBuff->FireProjectile();
 	}
 }
 
@@ -730,9 +750,30 @@ void ASTR_RacerPawn::TriggerItemUse()
 {
 	UE_LOG(LogTemp, Warning, TEXT("[ITEM] TriggerItemUse called on %s"), *GetName());
 
-	if (BuffComponent)
+	if (!BuffComponent)
 	{
+		return;
+	}
+
+	if (BuffComponent->CurrentBuff)
+	{
+		const bool bStoredProjectile = Cast<UProjectileBuff>(BuffComponent->CurrentBuff) != nullptr;
 		BuffComponent->UseBuff();
+
+		if (bStoredProjectile)
+		{
+			if (UProjectileBuff* ProjectileBuff = FindActiveProjectileBuff(BuffComponent))
+			{
+				ProjectileBuff->FireProjectile();
+			}
+		}
+
+		return;
+	}
+
+	if (UProjectileBuff* ProjectileBuff = FindActiveProjectileBuff(BuffComponent))
+	{
+		ProjectileBuff->FireProjectile();
 	}
 }
 
@@ -741,11 +782,40 @@ bool ASTR_RacerPawn::HasBuff() const
 	return BuffComponent && BuffComponent->CurrentBuff != nullptr;
 }
 
+void ASTR_RacerPawn::SetIgnoreObstacleHits(bool bShouldIgnore)
+{
+	bIgnoreObstacleHits = bShouldIgnore;
+}
+
+bool ASTR_RacerPawn::ShouldIgnoreHit(const AActor* OtherActor, const UPrimitiveComponent* OtherComp) const
+{
+	if (!bIgnoreObstacleHits)
+	{
+		return false;
+	}
+
+	if (OtherComp && OtherComp->GetCollisionObjectType() == ECC_WorldStatic)
+	{
+		return true;
+	}
+
+	const UPrimitiveComponent* RootPrimitive = OtherActor
+		? Cast<UPrimitiveComponent>(OtherActor->GetRootComponent())
+		: nullptr;
+
+	return RootPrimitive && RootPrimitive->GetCollisionObjectType() == ECC_WorldStatic;
+}
+
 void ASTR_RacerPawn::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 	UPrimitiveComponent* OtherComp, FVector NormalImpulse,
 	const FHitResult& Hit)
 {
 	if (!OtherActor) return;
+
+	if (ShouldIgnoreHit(OtherActor, OtherComp))
+	{
+		return;
+	}
 
 	// Cooldown anti spam
 	if (GetWorld()->TimeSeconds - LastHitTime < HitCooldown)

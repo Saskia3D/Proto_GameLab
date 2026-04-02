@@ -134,6 +134,12 @@ public:
 
 	float LastHitTime = -100.f;
 
+	UFUNCTION(BlueprintCallable, Category = "Collision")
+	void SetIgnoreObstacleHits(bool bShouldIgnore);
+
+	UFUNCTION(BlueprintPure, Category = "Collision")
+	bool IsIgnoringObstacleHits() const { return bIgnoreObstacleHits; }
+
 	UFUNCTION()
 	void OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 		UPrimitiveComponent* OtherComp, FVector NormalImpulse,
@@ -387,6 +393,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|DriftBoost")
 	bool bDriftBoostStillValid = false;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Collision")
+	bool bIgnoreObstacleHits = false;
+
 	//Detection offtrack
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|OffTrack")
 	bool bIsOffTrack = false;
@@ -458,6 +467,7 @@ protected:
 	void ShowRuntimeDriftTuningMessage() const;
 
 	void UpdateSafeRecoveryPoint();
+	bool ShouldIgnoreHit(const AActor* OtherActor, const UPrimitiveComponent* OtherComp) const;
 
 	void UpdateOffTrackState(float DeltaTime);
 	void EnsureMinimapWidget();
