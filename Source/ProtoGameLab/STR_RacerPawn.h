@@ -31,6 +31,9 @@ enum class EDriftTuningParam : uint8
 	DriftSpeedLossPerSecond,
 	DriftAccelMultiplier,
 	MinSpeedToStartDrift,
+	MaxSpeed,
+	AccelerationRate,
+	DriftChargeRate,
 	Count
 };
 

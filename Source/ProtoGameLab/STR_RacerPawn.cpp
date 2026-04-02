@@ -926,12 +926,13 @@ void ASTR_RacerPawn::TeleportBackToTrack()
 
 	if (GEngine)
 	{
+		/*
 		GEngine->AddOnScreenDebugMessage(
 			-1,
 			2.0f,
 			FColor::Orange,
 			FString::Printf(TEXT("%s was returned to the track"), *GetName())
-		);
+		); */
 	}
 
 	TeleportFeedbackTimer = TeleportFeedbackDuration;
@@ -1137,6 +1138,18 @@ void ASTR_RacerPawn::AdjustRuntimeDriftTuningValue(float Direction)
 		MinSpeedToStartDrift = FMath::Max(0.f, MinSpeedToStartDrift + 25.f * Direction);
 		break;
 
+	case EDriftTuningParam::MaxSpeed:
+		MaxSpeed = FMath::Max(0.f, MaxSpeed + 50.f * Direction);
+		break;
+
+	case EDriftTuningParam::AccelerationRate:
+		AccelerationRate = FMath::Max(0.f, AccelerationRate + 25.f * Direction);
+		break;
+
+	case EDriftTuningParam::DriftChargeRate:
+		DriftChargeRate = FMath::Max(0.f, DriftChargeRate + 5.f * Direction);
+		break;
+
 	default:
 		break;
 	}
@@ -1173,6 +1186,15 @@ FString ASTR_RacerPawn::GetRuntimeDriftTuningLabel() const
 	case EDriftTuningParam::MinSpeedToStartDrift:
 		return TEXT("MinSpeedToStartDrift");
 
+	case EDriftTuningParam::MaxSpeed:
+		return TEXT("MaxSpeed");
+
+	case EDriftTuningParam::AccelerationRate:
+		return TEXT("AccelerationRate");
+
+	case EDriftTuningParam::DriftChargeRate:
+		return TEXT("DriftChargeRate");
+
 	default:
 		return TEXT("Unknown");
 	}
@@ -1208,6 +1230,15 @@ float ASTR_RacerPawn::GetRuntimeDriftTuningValue() const
 
 	case EDriftTuningParam::MinSpeedToStartDrift:
 		return MinSpeedToStartDrift;
+
+	case EDriftTuningParam::MaxSpeed:
+		return MaxSpeed;
+
+	case EDriftTuningParam::AccelerationRate:
+		return AccelerationRate;
+
+	case EDriftTuningParam::DriftChargeRate:
+		return DriftChargeRate;
 
 	default:
 		return 0.f;

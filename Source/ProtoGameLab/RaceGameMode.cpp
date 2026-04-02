@@ -352,8 +352,8 @@ void ARaceGameMode::NotifyPlayerFinished(AActor* PlayerActor)
 			NewEntry.FinishTime,
 			FinalScore
 		);
-
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, Message);
+		/*
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, Message); */
 	}
 
 	// On d�marre le compte � rebours seulement quand le premier joueur finit
@@ -377,7 +377,8 @@ void ARaceGameMode::NotifyPlayerFinished(AActor* PlayerActor)
 				TEXT("Final countdown started! Race ends in %.0f seconds."),
 				FinishCountdownSeconds
 			);
-			GEngine->AddOnScreenDebugMessage(-1, 4.f, FColor::Yellow, CountdownMsg);
+			/*
+			GEngine->AddOnScreenDebugMessage(-1, 4.f, FColor::Yellow, CountdownMsg); */
 		}
 	}
 
@@ -408,7 +409,8 @@ void ARaceGameMode::EndRace()
 			*GetNameSafe(FinishOrder[0].PlayerActor),
 			FinishOrder[0].FinishTime
 		);
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, MessageFin);
+		/*
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, MessageFin); */
 	}
 
 	UE_LOG(LogTemp, Warning, TEXT("[RACE END] Opening RaceEndMenu"));
@@ -431,8 +433,9 @@ void ARaceGameMode::NotifyCheckpointPassed(APawn* PlayerPawn, int32 CheckpointIn
 
 	if (GEngine)
 	{
+		/*
 		GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green,
-			FString::Printf(TEXT("CP %d"), CheckpointIndex));
+			FString::Printf(TEXT("CP %d"), CheckpointIndex)); */
 	}
 
 	if (!PlayerPawn) return;
@@ -477,11 +480,12 @@ void ARaceGameMode::NotifyCheckpointPassed(APawn* PlayerPawn, int32 CheckpointIn
 
 	if (GEngine)
 	{
+		/*
 		GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Cyan,
 			FString::Printf(TEXT("%s: +%d CP points | Score=%d"),
 				*GetNameSafe(Controller),
 				PointsPerCheckpoint,
-				Progress.Score));
+				Progress.Score)); */
 	}
 
 	UpdatePositions();
@@ -646,8 +650,8 @@ void ARaceGameMode::UpdatePositions()
 		{
 			LeadMessage = TEXT("P1 et P2 sont a egalite !");
 		}
-
-		GEngine->AddOnScreenDebugMessage(100, 1.0f, FColor::Cyan, LeadMessage);
+		/*
+		GEngine->AddOnScreenDebugMessage(100, 1.0f, FColor::Cyan, LeadMessage); */
 	}
 }
 
@@ -676,11 +680,12 @@ void ARaceGameMode::NotifyLapCompleted(AController* Controller, int32 NewLapNumb
 
 	if (GEngine)
 	{
+		/*
 		GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Magenta,
 			FString::Printf(TEXT("%s: +%d LAP points | Score=%d"),
 				*GetNameSafe(Controller),
 				PointsPerLap,
-				Progress.Score));
+				Progress.Score)); */
 	}
 
 	Progress.LastCheckpoint = -1;
