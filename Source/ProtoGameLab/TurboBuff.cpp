@@ -4,6 +4,7 @@
 #include "TurboBuff.h"
 //#include "MyVehiclePawn.h"
 #include "STR_RacerPawn.h"
+#include "NiagaraFunctionLibrary.h"
 #include "ChaosWheeledVehicleMovementComponent.h"
 
 void UTurboBuff::Activate(APawn* Player)
@@ -24,6 +25,30 @@ void UTurboBuff::Activate(APawn* Player)
     CachedRacer = Racer;
     OriginalMaxSpeed = Racer->MaxSpeed;
     Racer->MaxSpeed = OriginalMaxSpeed * TurboMultiplier;
+
+    if (Racer->BoostTrail)
+    {
+        ActiveBoostFX_Left = UNiagaraFunctionLibrary::SpawnSystemAttached(
+            Racer->BoostTrail,
+            Racer->CarMesh, // attach à la voiture
+            "Exhaust_L",
+            FVector(-10.f, 10.f, 0.f), // gauche
+            FRotator::ZeroRotator,
+            EAttachLocation::KeepRelativeOffset,
+            true // auto destroy
+        );
+
+        ActiveBoostFX_Right = UNiagaraFunctionLibrary::SpawnSystemAttached(
+            Racer->BoostTrail,
+            Racer->CarMesh, // attach à la voiture
+            "Exhaust_R",
+            FVector(10.f, 10.f, 0.f), // droite
+            FRotator::ZeroRotator,
+            EAttachLocation::KeepRelativeOffset,
+            true // auto destroy
+        );
+
+    }
 
     /*
     // Sauvegarder valeur actuelle
@@ -58,6 +83,16 @@ void UTurboBuff::OnBuffExpired()
     if (ASTR_RacerPawn* Racer = CachedRacer.Get())
     {
         Racer->MaxSpeed = OriginalMaxSpeed;
+    }
+
+    if (ActiveBoostFX_Left)
+    {
+        ActiveBoostFX_Left->Deactivate();
+    }
+
+    if (ActiveBoostFX_Right)
+    {
+        ActiveBoostFX_Right->Deactivate();
     }
 
     if (GEngine)

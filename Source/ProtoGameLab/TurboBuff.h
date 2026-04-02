@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "BuffBase.h"
+#include "NiagaraComponent.h"
+#include "NiagaraComponent.h"
 #include "TurboBuff.generated.h"
 
 /**
@@ -28,4 +30,10 @@ private:
 
 	float OriginalMaxSpeed = 0.f;
 	TWeakObjectPtr<class ASTR_RacerPawn> CachedRacer;
+
+	UPROPERTY()
+	UNiagaraComponent* ActiveBoostFX_Left;
+
+	UPROPERTY()
+	UNiagaraComponent* ActiveBoostFX_Right;
 };

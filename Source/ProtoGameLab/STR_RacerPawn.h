@@ -150,6 +150,9 @@ public:
 	UPROPERTY(EditAnywhere, Category = "VFX")
 	UNiagaraSystem* ImpactEffect;
 
+	UPROPERTY(EditAnywhere, Category = "VFX") 
+	UNiagaraSystem* BoostTrail;
+
 	//fonctions IA
 	UFUNCTION(BlueprintCallable, Category = "AI")
 	void SetSteeringInput(float InSteer);
