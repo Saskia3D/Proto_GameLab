@@ -2,6 +2,8 @@
 #include "Components/SplineComponent.h"
 #include "Components/SplineMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "FinishLine.h"
+#include "Components/ArrowComponent.h"
 
 ATrackSplineActor::ATrackSplineActor()
 {
@@ -100,7 +102,9 @@ void ATrackSplineActor::PostEditChangeProperty(FPropertyChangedEvent& PropertyCh
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
 	ClearGenerated();
+	ClearFinishLine();
 	BuildRoad();
+	BuildFinishLine();
 }
 #endif
 
@@ -109,7 +113,9 @@ void ATrackSplineActor::BeginPlay()
 	Super::BeginPlay();
 
 	ClearGenerated();
+	ClearFinishLine();
 	BuildRoad();
+	BuildFinishLine();
 }
 
 void ATrackSplineActor::Tick(float DeltaTime)
@@ -187,4 +193,59 @@ FVector ATrackSplineActor::GetTrackForwardDirectionAtWorldLocation(const FVector
 	);
 
 	return TrackDirection.GetSafeNormal2D();
+}
+void ATrackSplineActor::ClearFinishLine()
+{
+	if (SpawnedFinishLine)
+	{
+		SpawnedFinishLine->Destroy();
+		SpawnedFinishLine = nullptr;
+	}
+}
+void ATrackSplineActor::BuildFinishLine()
+{
+	if (!Spline || !FinishLineClass)
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	const float SplineLength = Spline->GetSplineLength();
+	const float ClampedDistance = FMath::Clamp(FinishLineDistance, 0.0f, SplineLength);
+
+	const FVector WorldLocation = Spline->GetLocationAtDistanceAlongSpline(
+		ClampedDistance,
+		ESplineCoordinateSpace::World
+	);
+
+	FRotator WorldRotation = Spline->GetRotationAtDistanceAlongSpline(
+		ClampedDistance,
+		ESplineCoordinateSpace::World
+	);
+
+	WorldLocation;
+	FRotator SpawnRotation = WorldRotation;
+	SpawnRotation.Yaw += FinishLineYawOffset;
+
+	FVector SpawnLocation = WorldLocation;
+	SpawnLocation.Z += FinishLineZOffset;
+
+	SpawnedFinishLine = World->SpawnActor<AFinishLine>(
+		FinishLineClass,
+		SpawnLocation,
+		SpawnRotation
+	);
+
+	if (SpawnedFinishLine)
+	{
+		if (UArrowComponent* Arrow = SpawnedFinishLine->FindComponentByClass<UArrowComponent>())
+		{
+			Arrow->SetWorldRotation(SpawnRotation);
+		}
+	}
 }

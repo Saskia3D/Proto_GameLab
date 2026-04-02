@@ -9,6 +9,8 @@ class USplineComponent;
 class USplineMeshComponent;
 class UStaticMesh;
 class UMaterialInterface;
+class AFinishLine;
+class UArrowComponent;
 
 UCLASS()
 class PROTOGAMELAB_API ATrackSplineActor : public AActor
@@ -52,7 +54,7 @@ public:
 	TObjectPtr<UMaterialInterface> SpriteMaterial = nullptr; // The road texture material
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|Sprite")
-	float SpriteHeightOffset = 3.0f; // Lifts the sprite slightly above the road to prevent flickering
+	float SpriteHeightOffset = 2.0f; // Lifts the sprite slightly above the road to prevent flickering
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|Sprite")
 	float TileLength = 400.0f; // The physical length of one road tile in Unreal Units
@@ -74,7 +76,22 @@ public:
 	float GetClosestDistanceAlongSpline(const FVector& WorldLocation) const;
 
 	UFUNCTION(BlueprintCallable, Category = "Track|Query")
+	
 	FVector GetTrackForwardDirectionAtWorldLocation(const FVector& WorldLocation) const;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|FinishLine")
+	TSubclassOf<AFinishLine> FinishLineClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|FinishLine")
+	float FinishLineDistance = -10.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|FinishLine")
+	float FinishLineZOffset = 2.2f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|FinishLine")
+	float FinishLineYawOffset = 90.0f;
+
+	UPROPERTY(Transient)
+	TObjectPtr<AFinishLine> SpawnedFinishLine = nullptr;
 
 protected:
 	virtual void BeginPlay() override;
@@ -91,4 +108,7 @@ public:
 
 	void ClearGenerated();
 	void BuildRoad();
+
+	void BuildFinishLine();
+	void ClearFinishLine();
 };
