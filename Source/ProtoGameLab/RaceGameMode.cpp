@@ -52,8 +52,16 @@ void ARaceGameMode::BeginPlay()
 		*GetNameSafe(TrackManager),
 		TrackManager ? TrackManager->GetCheckpointCount() : -1);
 
-	StartRace();
-	UE_LOG(LogTemp, Warning, TEXT("RaceGameMode BeginPlay (ACTIVE)"));
+	if (bAutoStartRaceOnBeginPlay)
+	{
+		StartRace();
+		UE_LOG(LogTemp, Warning, TEXT("RaceGameMode BeginPlay (ACTIVE)"));
+	}
+	else
+	{
+		RaceState = ERaceState::Waiting;
+		UE_LOG(LogTemp, Warning, TEXT("RaceGameMode BeginPlay (WAITING FOR TUTORIAL)"));
+	}
 }
 
 void ARaceGameMode::StartRace()
@@ -426,6 +434,12 @@ AActor* ARaceGameMode::GetWinner() const
 
 void ARaceGameMode::NotifyCheckpointPassed(APawn* PlayerPawn, int32 CheckpointIndex)
 {
+	if (RaceState != ERaceState::Running)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[CHECKPOINT] Ignored because race is not running yet"));
+		return;
+	}
+
 	UE_LOG(LogTemp, Warning, TEXT("NotifyCheckpointPassed: Pawn=%s CP=%d"),
 		*GetNameSafe(PlayerPawn), CheckpointIndex);
 
@@ -653,6 +667,12 @@ void ARaceGameMode::UpdatePositions()
 
 void ARaceGameMode::NotifyLapCompleted(AController* Controller, int32 NewLapNumber)
 {
+	if (RaceState != ERaceState::Running)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[LAP] Ignored because race is not running yet"));
+		return;
+	}
+
 	if (!Controller) return;
 
 	FPlayerRaceProgress& Progress = ProgressByController.FindOrAdd(Controller);

@@ -140,6 +140,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Collision")
 	bool IsIgnoringObstacleHits() const { return bIgnoreObstacleHits; }
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|Rules")
+	bool bTrackRulesEnabled = true;
+
 	UFUNCTION()
 	void OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 		UPrimitiveComponent* OtherComp, FVector NormalImpulse,
@@ -150,7 +153,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = "VFX")
 	UNiagaraSystem* ImpactEffect;
 
-	UPROPERTY(EditAnywhere, Category = "VFX") 
+	UPROPERTY(EditAnywhere, Category = "VFX")
 	UNiagaraSystem* BoostTrail;
 
 	//fonctions IA
@@ -228,6 +231,18 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Track|WrongWay")
 	float GetWrongWayTime() const { return WrongWayTime; }
 
+	UFUNCTION(BlueprintCallable, Category = "Tutorial|Movement")
+	void SetMovementLocked(bool bLocked);
+
+	UFUNCTION(BlueprintPure, Category = "Tutorial|Movement")
+	bool IsMovementLocked() const { return bMovementLocked; }
+
+	UFUNCTION(BlueprintCallable, Category = "Track|Rules")
+	void SetTrackRulesEnabled(bool bEnabled);
+
+	UFUNCTION(BlueprintPure, Category = "Track|Rules")
+	bool AreTrackRulesEnabled() const { return bTrackRulesEnabled; }
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|WrongWay")
 	bool bIsGoingWrongWay = false;
 
@@ -253,6 +268,7 @@ protected:
 
 	bool bIsDriftButtonHeld = false;
 	bool bAutoDriveEnabled = true;
+	bool bMovementLocked = false;
 
 	void Steer(const FInputActionValue& Value);
 	void StartDrift(const FInputActionValue& Value);
@@ -477,6 +493,8 @@ protected:
 	void RemoveMinimapWidget();
 
 	void TeleportBackToTrack();
+
+	void ResetTrackRuleState();
 
 	float GetSignedSlipAngleDegrees() const;
 	float GetTravelYawRateDegrees(float DeltaTime, const FVector& CurrentTravelDir) const;
