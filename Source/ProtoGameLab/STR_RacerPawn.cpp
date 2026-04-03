@@ -109,6 +109,30 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 	HandleRuntimeDriftTuning();
 
+	if (bMovementLocked)
+	{
+		TargetSteeringInput = 0.f;
+		CurrentSteeringInput = 0.f;
+		bIsDriftButtonHeld = false;
+		bIsDrifting = false;
+		DriftDirection = 0;
+		DriftChargeDirection = 0;
+		DriftCharge = 0.f;
+		DriftHeldTime = 0.f;
+		CurrentDriftAngle = 0.f;
+		ActiveBoostTimer = 0.f;
+		ActiveBoostBonusSpeed = 0.f;
+		CurrentSpeed = 0.f;
+		MoveVelocity = FVector::ZeroVector;
+
+		if (BoxComp)
+		{
+			BoxComp->ComponentVelocity = FVector::ZeroVector;
+		}
+
+		return;
+	}
+
 	if (HitStunTimer > 0.f)
 	{
 		HitStunTimer -= DeltaTime;
@@ -119,9 +143,15 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 		TeleportFeedbackTimer = FMath::Max(0.f, TeleportFeedbackTimer - DeltaTime);
 	}
 
-	UpdateOffTrackState(DeltaTime);
-
-	UpdateWrongWayState(DeltaTime);
+	if (bTrackRulesEnabled)
+	{
+		UpdateOffTrackState(DeltaTime);
+		UpdateWrongWayState(DeltaTime);
+	}
+	else
+	{
+		ResetTrackRuleState();
+	}
 
 	float EffectiveAccelerationRate = AccelerationRate;
 	float EffectiveBrakingDeceleration = BrakingDeceleration;
@@ -574,6 +604,12 @@ void ASTR_RacerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 
 void ASTR_RacerPawn::Steer(const FInputActionValue& Value)
 {
+	if (bMovementLocked)
+	{
+		TargetSteeringInput = 0.f;
+		return;
+	}
+
 	const float RawSteer = Value.Get<float>();
 	TargetSteeringInput = FMath::Clamp(RawSteer, -1.0f, 1.0f);
 
@@ -585,6 +621,12 @@ void ASTR_RacerPawn::Steer(const FInputActionValue& Value)
 
 void ASTR_RacerPawn::UseItem(const FInputActionValue& Value)
 {
+
+	if (bMovementLocked)
+	{
+		return;
+	}
+
 	if (!BuffComponent) return;
 
 	if (BuffComponent->CurrentBuff)
@@ -743,11 +785,17 @@ void ASTR_RacerPawn::SetSteeringInput(float InSteer)
 void ASTR_RacerPawn::ClearDrivingInputs()
 {
 	TargetSteeringInput = 0.f;
+	CurrentSteeringInput = 0.f;
 	bIsDriftButtonHeld = false;
 }
 
 void ASTR_RacerPawn::TriggerItemUse()
 {
+	if (bMovementLocked)
+	{
+		return;
+	}
+
 	UE_LOG(LogTemp, Warning, TEXT("[ITEM] TriggerItemUse called on %s"), *GetName());
 
 	if (!BuffComponent)
@@ -937,6 +985,19 @@ void ASTR_RacerPawn::TeleportBackToTrack()
 	TeleportFeedbackTimer = TeleportFeedbackDuration;
 }
 
+void ASTR_RacerPawn::ResetTrackRuleState()
+{
+	bIsOffTrack = false;
+	bOffTrackPenaltyActive = false;
+	OffTrackTime = 0.f;
+
+	bIsGoingWrongWay = false;
+	bWrongWayWarningActive = false;
+	WrongWayTime = 0.f;
+
+	TeleportFeedbackTimer = 0.f;
+}
+
 void ASTR_RacerPawn::UpdateWrongWayState(float DeltaTime)
 {
 	const bool bWasWrongWay = bIsGoingWrongWay;
@@ -1011,9 +1072,62 @@ void ASTR_RacerPawn::UpdateWrongWayState(float DeltaTime)
 	}
 }
 
+void ASTR_RacerPawn::SetMovementLocked(bool bLocked)
+{
+	bMovementLocked = bLocked;
+
+	if (bMovementLocked)
+	{
+		// Inputs
+		TargetSteeringInput = 0.f;
+		CurrentSteeringInput = 0.f;
+		bIsDriftButtonHeld = false;
+
+		// Drift
+		bIsDrifting = false;
+		DriftDirection = 0;
+		DriftChargeDirection = 0;
+		DriftCharge = 0.f;
+		DriftHeldTime = 0.f;
+		CurrentDriftAngle = 0.f;
+		bWasDriftingLastFrame = false;
+		bDriftBoostStillValid = false;
+
+		// Boost
+		ActiveBoostTimer = 0.f;
+		ActiveBoostBonusSpeed = 0.f;
+
+		// Movement
+		CurrentSpeed = 0.f;
+		MoveVelocity = FVector::ZeroVector;
+		LastTravelDir = GetActorForwardVector().GetSafeNormal2D();
+
+		// Divers
+		HitStunTimer = 0.f;
+
+		if (BoxComp)
+		{
+			BoxComp->ComponentVelocity = FVector::ZeroVector;
+		}
+	}
+}
+
 void ASTR_RacerPawn::SetAutoDriveEnabled(bool bShouldAutoDrive)
 {
 	bAutoDriveEnabled = bShouldAutoDrive;
+}
+
+void ASTR_RacerPawn::SetTrackRulesEnabled(bool bEnabled)
+{
+	bTrackRulesEnabled = bEnabled;
+	UE_LOG(LogTemp, Warning, TEXT("[TRACK RULES] %s -> %s"),
+		*GetName(),
+		bEnabled ? TEXT("ENABLED") : TEXT("DISABLED"));
+
+	if (!bTrackRulesEnabled)
+	{
+		ResetTrackRuleState();
+	}
 }
 
 void ASTR_RacerPawn::SetDriftButtonHeld(bool bShouldHoldDrift)
@@ -1023,6 +1137,12 @@ void ASTR_RacerPawn::SetDriftButtonHeld(bool bShouldHoldDrift)
 
 void ASTR_RacerPawn::StartDrift(const FInputActionValue& Value)
 {
+	if (bMovementLocked)
+	{
+		bIsDriftButtonHeld = false;
+		return;
+	}
+
 	bIsDriftButtonHeld = true;
 }
 

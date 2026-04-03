@@ -87,6 +87,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Race")
 	void StartRace(); // D�marre la course, appel�e par le serveur
 
+	UFUNCTION(BlueprintCallable, Category = "Race|Start")
+	bool IsRaceRunning() const { return RaceState == ERaceState::Running; }
+
 	UFUNCTION(BlueprintCallable, Category = "Race")
 	void NotifyPlayerFinished(AActor* PlayerActor); // Appel�e par les joueurs lorsqu'ils terminent la course
 
@@ -155,6 +158,9 @@ protected:
 	// Classe de TrackManager � utiliser, assign�e dans l'�diteur pour permettre au GameMode de cr�er une instance du TrackManager au d�but de la course
 	UPROPERTY(EditDefaultsOnly, Category = "Race")
 	TSubclassOf<ATrackManager> TrackManagerClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Race|Start")
+	bool bAutoStartRaceOnBeginPlay = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Race|Score")
 	int32 PointsPerCheckpoint = 100; //Nombre de points par checkpoint passe
