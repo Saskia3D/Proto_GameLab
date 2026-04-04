@@ -28,6 +28,12 @@ void ACamManager::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// Si plus d'un joueur -> NE PAS utiliser cette caméra
+	if (GetWorld()->GetNumPlayerControllers() > 1)
+	{
+		return;
+	}
+
 	APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
 	if (PC)
 	{

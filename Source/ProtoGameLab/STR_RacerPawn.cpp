@@ -661,6 +661,8 @@ void ASTR_RacerPawn::PossessedBy(AController* NewController)
 	APlayerController* PC = Cast<APlayerController>(NewController);
 	if (!PC) return;
 
+	PC->SetViewTargetWithBlend(this, 0.0f);
+
 	ULocalPlayer* LP = PC->GetLocalPlayer();
 	if (!LP) return;
 
