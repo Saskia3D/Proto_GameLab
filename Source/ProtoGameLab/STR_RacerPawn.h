@@ -288,13 +288,13 @@ protected:
 	float NormalGrip = 17.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
-	float DriftGrip = 12.f;
+	float DriftGrip = 14.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
-	float DriftSpeedLossPerSecond = 100.f;
+	float DriftSpeedLossPerSecond = 15.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
-	float DriftAccelMultiplier = 0.3f;
+	float DriftAccelMultiplier = 1.5f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
 	float DriftDirectionSwitchThreshold = 0.7f;
