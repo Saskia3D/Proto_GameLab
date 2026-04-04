@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
+#include "UObject/SoftObjectPath.h"
 #include "RaceLeaderboardEntry.h"
 #include "ProtoGameLabGameInstance.generated.h"
 
@@ -28,10 +29,28 @@ public:
 
 	const TArray<FRaceLeaderboardEntry>& GetLastRaceLeaderboardNative() const { return LastRaceLeaderboard; }
 
+	UFUNCTION(BlueprintCallable, Category = "Vehicle Selection")
+	void SetSelectedVehicleMeshes(const TArray<FSoftObjectPath>& InSelectedVehicleMeshes);
+
+	UFUNCTION(BlueprintCallable, Category = "Vehicle Selection")
+	void SetSelectedVehicleMesh(int32 PlayerIndex, const FSoftObjectPath& InMeshPath);
+
+	UFUNCTION(BlueprintCallable, Category = "Vehicle Selection")
+	void ClearSelectedVehicleMeshes();
+
+	UFUNCTION(BlueprintPure, Category = "Vehicle Selection")
+	FSoftObjectPath GetSelectedVehicleMesh(int32 PlayerIndex) const;
+
+	UFUNCTION(BlueprintPure, Category = "Vehicle Selection")
+	TArray<FSoftObjectPath> GetSelectedVehicleMeshes() const { return SelectedVehicleMeshes; }
+
 private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Leaderboard", meta = (AllowPrivateAccess = "true"))
 	TArray<FRaceLeaderboardEntry> LastRaceLeaderboard;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Race", meta = (AllowPrivateAccess = "true"))
 	FName LastRaceMapName = NAME_None;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Vehicle Selection", meta = (AllowPrivateAccess = "true"))
+	TArray<FSoftObjectPath> SelectedVehicleMeshes;
 };

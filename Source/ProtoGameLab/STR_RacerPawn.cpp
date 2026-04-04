@@ -3,8 +3,10 @@
 #include "BuffComponent.h"
 #include "BuffBase.h"
 #include "ProjectileBuff.h"
+#include "ProtoGameLabGameInstance.h"
 #include "Camera/CameraComponent.h"
 #include "Components/BoxComponent.h"
+#include "Engine/StaticMesh.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -101,6 +103,7 @@ void ASTR_RacerPawn::BeginPlay()
 	}
 
 	BoxComp->OnComponentHit.AddDynamic(this, &ASTR_RacerPawn::OnHit);
+	ApplySelectedVehicleMesh();
 	EnsureMinimapWidget();
 }
 
@@ -668,6 +671,7 @@ void ASTR_RacerPawn::PossessedBy(AController* NewController)
 		Subsystem->AddMappingContext(DefaultMappingContext, 0);
 	}
 
+	ApplySelectedVehicleMesh();
 	EnsureMinimapWidget();
 }
 
@@ -725,6 +729,49 @@ void ASTR_RacerPawn::RemoveMinimapWidget()
 	{
 		MinimapWidget->RemoveFromParent();
 		MinimapWidget = nullptr;
+	}
+}
+
+void ASTR_RacerPawn::ApplySelectedVehicleMesh()
+{
+	if (!CarMesh)
+	{
+		return;
+	}
+
+	APlayerController* PC = Cast<APlayerController>(GetController());
+	if (!PC)
+	{
+		return;
+	}
+
+	ULocalPlayer* LocalPlayer = PC->GetLocalPlayer();
+	if (!LocalPlayer)
+	{
+		return;
+	}
+
+	const int32 PlayerIndex = LocalPlayer->GetControllerId();
+	if (PlayerIndex < 0 || !GetWorld())
+	{
+		return;
+	}
+
+	const UProtoGameLabGameInstance* GameInstance = Cast<UProtoGameLabGameInstance>(GetWorld()->GetGameInstance());
+	if (!GameInstance)
+	{
+		return;
+	}
+
+	const FSoftObjectPath SelectedMeshPath = GameInstance->GetSelectedVehicleMesh(PlayerIndex);
+	if (SelectedMeshPath.IsNull())
+	{
+		return;
+	}
+
+	if (UStaticMesh* SelectedMesh = Cast<UStaticMesh>(SelectedMeshPath.TryLoad()))
+	{
+		CarMesh->SetStaticMesh(SelectedMesh);
 	}
 }
 
