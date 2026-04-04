@@ -27,7 +27,7 @@ protected:
     UStaticMeshComponent* Mesh;
 
     UPROPERTY(EditAnywhere)
-    float Speed = 2000.f;
+    float Speed = 3000.f;
 
     UPROPERTY(EditAnywhere)
     float SlowMultiplier = 0.5f;
