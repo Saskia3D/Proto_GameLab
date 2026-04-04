@@ -8,6 +8,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
 #include "RaceGameMode.h"
+#include "Camera/PlayerCameraManager.h"
 
 // Sets default values
 AFinishLine::AFinishLine()
@@ -184,10 +185,31 @@ void AFinishLine::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* Ot
 
 	if (Data.LapNumber >= TotalLaps)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[FINISH] Player reached MaxLaps -> NotifyPlayerFinished(%s)"),
+		/*UE_LOG(LogTemp, Warning, TEXT("[FINISH] Player reached MaxLaps -> NotifyPlayerFinished(%s)"),
 			*GetNameSafe(Pawn));
 
 		GameMode->NotifyPlayerFinished(Pawn);
+		*/
+		// On boucle sur tous les Player Controllers présents localement(Split - screen)
+			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+			{
+				APlayerController* PC = Iterator->Get();
+				if (PC && PC->PlayerCameraManager)
+				{
+					// On lance le fondu sur chaque écran individuellement
+					PC->PlayerCameraManager->StartCameraFade(0.0f, 1.0f, 0.8f, FLinearColor::Black, false, true);
+				}
+			}
+
+		// Le reste du timer pour OpenLevel ne change pas
+		FTimerHandle EndRaceTimer;
+		GetWorldTimerManager().SetTimer(EndRaceTimer, [GameMode, Pawn]()
+			{
+				if (GameMode && Pawn)
+				{
+					GameMode->NotifyPlayerFinished(Pawn);
+				}
+			}, 0.8f, false);
 	}
 }
 
