@@ -271,7 +271,7 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 	//gestion du steering a haute et basse vitesse
 	CurrentSpeed = FMath::Clamp(CurrentSpeed, -600.f, EffectiveMaxSpeed);
 
-	const float SpeedRatio = FMath::Clamp(CurrentSpeed / MaxSpeed, 0.f, 1.f);
+	const float SpeedRatio = FMath::Clamp(CurrentSpeed / EffectiveMaxSpeed, 0.f, 1.f);
 	const float BaseTurnRate = FMath::Lerp(
 		MaxTurnRate,
 		MinTurnRateAtMaxSpeed,
