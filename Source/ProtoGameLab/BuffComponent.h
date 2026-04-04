@@ -37,6 +37,12 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FOnBuffChanged OnBuffChanged;
 
+	UPROPERTY(BlueprintReadOnly)
+	TSubclassOf<UBuffBase> PendingBuffClass;
+
+	UFUNCTION(BlueprintCallable, Category = "Buff")
+	void ConfirmPendingBuff();
+
 private:
 	UBuffBase* FindActiveBuffByClass(UClass* BuffClass) const;
 };
