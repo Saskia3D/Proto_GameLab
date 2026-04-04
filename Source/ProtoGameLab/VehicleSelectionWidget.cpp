@@ -27,7 +27,7 @@
 #include "VehicleSelectionPreviewActor.h"
 #include "Widgets/SWidget.h"
 
-namespace
+namespace VehicleSelectionWidgetPrivate
 {
 	const FLinearColor PlayerOneAccent(1.0f, 0.70f, 0.16f, 1.0f);
 	const FLinearColor PlayerTwoAccent(0.30f, 0.88f, 1.0f, 1.0f);
@@ -315,12 +315,12 @@ void UVehicleSelectionWidget::BuildRuntimeWidget()
 		RootSlot->SetZOrder(1);
 	}
 
-	UTextBlock* Title = CreateTextBlock(
+	UTextBlock* Title = VehicleSelectionWidgetPrivate::CreateTextBlock(
 		WidgetTree,
 		TEXT("VehicleSelectionTitle"),
 		TitleText,
 		MakeThemeFont(48),
-		DefaultTextColor,
+		VehicleSelectionWidgetPrivate::DefaultTextColor,
 		ETextJustify::Center
 	);
 	if (UVerticalBoxSlot* TitleSlot = RootBox->AddChildToVerticalBox(Title))
@@ -329,12 +329,12 @@ void UVehicleSelectionWidget::BuildRuntimeWidget()
 		TitleSlot->SetPadding(TitlePadding);
 	}
 
-	UTextBlock* Subtitle = CreateTextBlock(
+	UTextBlock* Subtitle = VehicleSelectionWidgetPrivate::CreateTextBlock(
 		WidgetTree,
 		TEXT("VehicleSelectionSubtitle"),
 		SubtitleText,
 		MakeThemeFont(18),
-		MutedTextColor,
+		VehicleSelectionWidgetPrivate::MutedTextColor,
 		ETextJustify::Center
 	);
 	if (UVerticalBoxSlot* SubtitleSlot = RootBox->AddChildToVerticalBox(Subtitle))
@@ -356,7 +356,7 @@ void UVehicleSelectionWidget::BuildRuntimeWidget()
 	for (int32 PlayerIndex = 0; PlayerIndex < PlayerStates.Num(); ++PlayerIndex)
 	{
 		FVehicleSelectionPlayerState& PlayerState = PlayerStates[PlayerIndex];
-		const FLinearColor AccentColor = GetAccentColor(PlayerIndex);
+		const FLinearColor AccentColor = VehicleSelectionWidgetPrivate::GetAccentColor(PlayerIndex);
 
 		UBorder* CardBorder = WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass(), *FString::Printf(TEXT("VehicleCard_%d"), PlayerIndex));
 		CardBorder->SetBrushColor(PanelTint);
@@ -376,7 +376,7 @@ void UVehicleSelectionWidget::BuildRuntimeWidget()
 		UVerticalBox* CardBox = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass(), *FString::Printf(TEXT("VehicleCardBox_%d"), PlayerIndex));
 		CardBorder->SetContent(CardBox);
 
-		PlayerState.PlayerLabel = CreateTextBlock(
+		PlayerState.PlayerLabel = VehicleSelectionWidgetPrivate::CreateTextBlock(
 			WidgetTree,
 			FString::Printf(TEXT("PlayerLabel_%d"), PlayerIndex),
 			PlayerIndex == 0 ? PlayerOneTitleText : PlayerTwoTitleText,
@@ -412,14 +412,14 @@ void UVehicleSelectionWidget::BuildRuntimeWidget()
 		}
 
 		UTextBlock* LeftLabel = nullptr;
-		PlayerState.LeftButton = CreateStyledButton(WidgetTree, FString::Printf(TEXT("LeftButton_%d"), PlayerIndex), LeftButtonText, MakeThemeFont(26), LeftLabel);
+		PlayerState.LeftButton = VehicleSelectionWidgetPrivate::CreateStyledButton(WidgetTree, FString::Printf(TEXT("LeftButton_%d"), PlayerIndex), LeftButtonText, MakeThemeFont(26), LeftLabel);
 		if (UHorizontalBoxSlot* LeftSlot = NavRow->AddChildToHorizontalBox(PlayerState.LeftButton))
 		{
 			LeftSlot->SetPadding(FMargin(0.f, 0.f, NavigationButtonSpacing, 0.f));
 		}
 
 		UTextBlock* RightLabel = nullptr;
-		PlayerState.RightButton = CreateStyledButton(WidgetTree, FString::Printf(TEXT("RightButton_%d"), PlayerIndex), RightButtonText, MakeThemeFont(26), RightLabel);
+		PlayerState.RightButton = VehicleSelectionWidgetPrivate::CreateStyledButton(WidgetTree, FString::Printf(TEXT("RightButton_%d"), PlayerIndex), RightButtonText, MakeThemeFont(26), RightLabel);
 		if (UHorizontalBoxSlot* RightSlot = NavRow->AddChildToHorizontalBox(PlayerState.RightButton))
 		{
 			RightSlot->SetPadding(FMargin(NavigationButtonSpacing, 0.f, 0.f, 0.f));
@@ -436,12 +436,12 @@ void UVehicleSelectionWidget::BuildRuntimeWidget()
 			PlayerState.RightButton->OnClicked.AddDynamic(this, &UVehicleSelectionWidget::OnPlayerTwoRightClicked);
 		}
 
-		PlayerState.VehicleLabel = CreateTextBlock(
+		PlayerState.VehicleLabel = VehicleSelectionWidgetPrivate::CreateTextBlock(
 			WidgetTree,
 			FString::Printf(TEXT("VehicleLabel_%d"), PlayerIndex),
 			FText::FromString(TEXT("---")),
 			MakeThemeFont(30),
-			DefaultTextColor,
+			VehicleSelectionWidgetPrivate::DefaultTextColor,
 			ETextJustify::Center
 		);
 		if (UVerticalBoxSlot* VehicleLabelSlot = CardBox->AddChildToVerticalBox(PlayerState.VehicleLabel))
@@ -450,12 +450,12 @@ void UVehicleSelectionWidget::BuildRuntimeWidget()
 			VehicleLabelSlot->SetPadding(VehicleNamePadding);
 		}
 
-		PlayerState.StatusLabel = CreateTextBlock(
+		PlayerState.StatusLabel = VehicleSelectionWidgetPrivate::CreateTextBlock(
 			WidgetTree,
 			FString::Printf(TEXT("StatusLabel_%d"), PlayerIndex),
 			WaitingStatusText,
 			MakeThemeFont(18),
-			MutedTextColor,
+			VehicleSelectionWidgetPrivate::MutedTextColor,
 			ETextJustify::Center
 		);
 		if (UVerticalBoxSlot* StatusSlot = CardBox->AddChildToVerticalBox(PlayerState.StatusLabel))
@@ -465,7 +465,7 @@ void UVehicleSelectionWidget::BuildRuntimeWidget()
 		}
 
 		UTextBlock* ConfirmLabel = nullptr;
-		PlayerState.ConfirmButton = CreateStyledButton(
+		PlayerState.ConfirmButton = VehicleSelectionWidgetPrivate::CreateStyledButton(
 			WidgetTree,
 			FString::Printf(TEXT("ConfirmButton_%d"), PlayerIndex),
 			ConfirmPromptText,
@@ -488,12 +488,12 @@ void UVehicleSelectionWidget::BuildRuntimeWidget()
 		}
 	}
 
-	BottomInstructionText = CreateTextBlock(
+	BottomInstructionText = VehicleSelectionWidgetPrivate::CreateTextBlock(
 		WidgetTree,
 		TEXT("VehicleSelectionInstruction"),
 		BottomInstructionTextContent,
 		MakeThemeFont(16),
-		MutedTextColor,
+		VehicleSelectionWidgetPrivate::MutedTextColor,
 		ETextJustify::Center
 	);
 	if (UVerticalBoxSlot* InstructionSlot = RootBox->AddChildToVerticalBox(BottomInstructionText))
@@ -706,7 +706,7 @@ void UVehicleSelectionWidget::UpdatePlayerCard(const int32 PlayerIndex)
 	}
 
 	FVehicleSelectionPlayerState& PlayerState = PlayerStates[PlayerIndex];
-	const FLinearColor AccentColor = GetAccentColor(PlayerIndex);
+	const FLinearColor AccentColor = VehicleSelectionWidgetPrivate::GetAccentColor(PlayerIndex);
 	const bool bHasVehicle = VehicleOptions.IsValidIndex(PlayerState.SelectedIndex);
 
 	if (PlayerState.CardBorder)
@@ -719,21 +719,21 @@ void UVehicleSelectionWidget::UpdatePlayerCard(const int32 PlayerIndex)
 	if (PlayerState.VehicleLabel)
 	{
 		PlayerState.VehicleLabel->SetText(FText::FromString(
-			bHasVehicle ? GetVehicleDisplayName(VehicleOptions[PlayerState.SelectedIndex], PlayerState.SelectedIndex) : FString(TEXT("NO VEHICLE"))
+			bHasVehicle ? VehicleSelectionWidgetPrivate::GetVehicleDisplayName(VehicleOptions[PlayerState.SelectedIndex], PlayerState.SelectedIndex) : FString(TEXT("NO VEHICLE"))
 		));
-		PlayerState.VehicleLabel->SetColorAndOpacity(FSlateColor(PlayerState.bConfirmed ? AccentColor : DefaultTextColor));
+		PlayerState.VehicleLabel->SetColorAndOpacity(FSlateColor(PlayerState.bConfirmed ? AccentColor : VehicleSelectionWidgetPrivate::DefaultTextColor));
 	}
 
 	if (PlayerState.StatusLabel)
 	{
 		PlayerState.StatusLabel->SetText(PlayerState.bConfirmed ? ReadyStatusText : WaitingStatusText);
-		PlayerState.StatusLabel->SetColorAndOpacity(FSlateColor(PlayerState.bConfirmed ? ReadyTextColor : MutedTextColor));
+		PlayerState.StatusLabel->SetColorAndOpacity(FSlateColor(PlayerState.bConfirmed ? VehicleSelectionWidgetPrivate::ReadyTextColor : VehicleSelectionWidgetPrivate::MutedTextColor));
 	}
 
 	if (PlayerState.ConfirmLabel)
 	{
 		PlayerState.ConfirmLabel->SetText(PlayerState.bConfirmed ? LockedInText : ConfirmPromptText);
-		PlayerState.ConfirmLabel->SetColorAndOpacity(FSlateColor(PlayerState.bConfirmed ? ReadyTextColor : DefaultTextColor));
+		PlayerState.ConfirmLabel->SetColorAndOpacity(FSlateColor(PlayerState.bConfirmed ? VehicleSelectionWidgetPrivate::ReadyTextColor : VehicleSelectionWidgetPrivate::DefaultTextColor));
 	}
 }
 
