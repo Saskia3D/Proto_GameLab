@@ -17,20 +17,22 @@ UBuffComponent::UBuffComponent()
 
 void UBuffComponent::AddBuff(TSubclassOf<UBuffBase> BuffClass)
 {
-    if (!BuffClass) return;
+    if (!BuffClass || CurrentBuff) return;
 
-    if (CurrentBuff)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("[BUFF] Player already has a stored buff, ignoring new one."));
-        return;
-    }
+    PendingBuffClass = BuffClass;
 
-    CurrentBuff = NewObject<UBuffBase>(this, BuffClass);
+    OnBuffChanged.Broadcast(); // trigger UI roulette
+}
 
-    UE_LOG(LogTemp, Warning, TEXT("[BUFF] Stored buff added: %s"), *BuffClass->GetName());
+void UBuffComponent::ConfirmPendingBuff()
+{
+    if (!PendingBuffClass) return;
 
-    OnBuffChanged.Broadcast();
+    CurrentBuff = NewObject<UBuffBase>(this, PendingBuffClass);
 
+    PendingBuffClass = nullptr;
+
+    OnBuffChanged.Broadcast(); // update UI finale
 }
 
 UBuffBase* UBuffComponent::FindActiveBuffByClass(UClass* BuffClass) const
