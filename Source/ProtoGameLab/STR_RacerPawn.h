@@ -487,6 +487,7 @@ protected:
 
 	void UpdateSafeRecoveryPoint();
 	bool ShouldIgnoreHit(const AActor* OtherActor, const UPrimitiveComponent* OtherComp) const;
+	void ApplySelectedVehicleMesh();
 
 	void UpdateOffTrackState(float DeltaTime);
 	void EnsureMinimapWidget();
