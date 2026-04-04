@@ -721,7 +721,7 @@ void ASTR_RacerPawn::EnsureMinimapWidget()
 	MinimapWidget = CreateWidget<URaceMinimapWidget>(PC, MinimapWidgetClass);
 	if (MinimapWidget)
 	{
-		MinimapWidget->AddToPlayerScreen(40);
+		MinimapWidget->AddToViewport(40);
 	}
 }
 
