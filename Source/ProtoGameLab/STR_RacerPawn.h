@@ -505,6 +505,18 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|Recovery")
 	float SafeRecoveryTrackRatio = 0.72f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|Height")
+	bool bLockHeightToTrack = true;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|Height")
+	float HeightLockOffsetFromTrack = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|Height")
+	float HeightSnapTolerance = 0.5f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|Height")
+	float LockedWorldZ = 0.f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug|DriftTuning")
 	bool bEnableRuntimeDriftTuning = true;
 
@@ -542,5 +554,8 @@ protected:
 	float GetPostDriftSteeringInput(float RawSteeringInput) const;
 
 	ATrackSplineActor* ResolveTrackSplineActor();
+
+	void InitializeHeightLock();
+	void EnforceTrackHeight(bool bTeleport = false);
 };
 

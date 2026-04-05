@@ -59,7 +59,7 @@ void ATrackSplineActor::BuildRoad()
 
 		// Road base
 		USplineMeshComponent* RoadSeg = NewObject<USplineMeshComponent>(this);
-		RoadSeg->SetFlags(RF_Transactional);// Enable track changes
+		RoadSeg->SetFlags(RF_Transactional);
 		RoadSeg->SetMobility(EComponentMobility::Movable);
 		RoadSeg->RegisterComponentWithWorld(GetWorld());
 		RoadSeg->AttachToComponent(Spline, FAttachmentTransformRules::KeepRelativeTransform);
@@ -69,6 +69,8 @@ void ATrackSplineActor::BuildRoad()
 		RoadSeg->SetStartScale(FVector2D(RoadWidthScale, 0.05f));
 		RoadSeg->SetEndScale(FVector2D(RoadWidthScale, 0.05f));
 		RoadSeg->SetForwardAxis(ESplineMeshAxis::Y);
+		RoadSeg->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		RoadSeg->SetGenerateOverlapEvents(false);
 		RoadSegments.Add(RoadSeg);
 
 		// Sprite top
@@ -179,6 +181,24 @@ float ATrackSplineActor::GetClosestDistanceAlongSpline(const FVector& WorldLocat
 		ClosestLocation,
 		ESplineCoordinateSpace::World
 	);
+}
+
+FVector ATrackSplineActor::GetClosestWorldLocationOnTrack(const FVector& WorldLocation) const
+{
+	if (!Spline)
+	{
+		return WorldLocation;
+	}
+
+	return Spline->FindLocationClosestToWorldLocation(
+		WorldLocation,
+		ESplineCoordinateSpace::World
+	);
+}
+
+float ATrackSplineActor::GetTrackZAtWorldLocation(const FVector& WorldLocation) const
+{
+	return GetClosestWorldLocationOnTrack(WorldLocation).Z;
 }
 
 FVector ATrackSplineActor::GetTrackForwardDirectionAtWorldLocation(const FVector& WorldLocation) const
