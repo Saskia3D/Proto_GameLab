@@ -77,10 +77,10 @@ public:
 	UInputAction* ItemAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float MaxSpeed = 1245.0f;
+	float MaxSpeed = 1800.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float AccelerationRate = 400.0f;
+	float AccelerationRate = 700.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float BrakingDeceleration = 800.0f;
@@ -288,13 +288,13 @@ protected:
 	float NormalGrip = 17.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
-	float DriftGrip = 12.f;
+	float DriftGrip = 14.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
-	float DriftSpeedLossPerSecond = 100.f;
+	float DriftSpeedLossPerSecond = 40.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
-	float DriftAccelMultiplier = 0.28f;
+	float DriftAccelMultiplier = 0.6f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
 	float DriftDirectionSwitchThreshold = 0.7f;

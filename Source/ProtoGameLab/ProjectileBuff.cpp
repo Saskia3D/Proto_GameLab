@@ -34,7 +34,7 @@ void UProjectileBuff::FireProjectile()
 
     // Spawn plus loin devant pour éviter collision immédiate
     FVector Forward = CachedPlayer->GetActorForwardVector();
-    FVector SpawnLoc = CachedPlayer->GetActorLocation() + Forward * 500.f;
+    FVector SpawnLoc = CachedPlayer->GetActorLocation() + Forward * 600.f;
     FRotator SpawnRot = CachedPlayer->GetActorRotation();
 
     // Paramètres importants
