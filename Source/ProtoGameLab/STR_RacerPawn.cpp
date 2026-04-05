@@ -204,7 +204,7 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 	float EffectiveAccelerationRate = AccelerationRate;
 	float EffectiveBrakingDeceleration = BrakingDeceleration;
 	float EffectiveCoastingDeceleration = CoastingDeceleration;
-	float EffectiveMaxSpeed = MaxSpeed + ActiveBoostBonusSpeed;
+	float EffectiveMaxSpeed = MaxSpeed + CurrentBoostExtraSpeed;
 	float ExtraOffTrackDeceleration = 0.f;
 
 	if (bOffTrackPenaltyActive)
@@ -217,14 +217,37 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 	}
 
 	// si drift actif, alors on reduit son temps restant
+	if (DriftDirectionChangeCooldownTimer > 0.f)
+	{
+		DriftDirectionChangeCooldownTimer = FMath::Max(0.f, DriftDirectionChangeCooldownTimer - DeltaTime);
+	}
+
+	if (bPostDriftRecoveryActive)
+	{
+		PostDriftRecoveryTimer -= DeltaTime;
+		if (PostDriftRecoveryTimer <= 0.f)
+		{
+			bPostDriftRecoveryActive = false;
+			PostDriftRecoveryTimer = 0.f;
+		}
+	}
+
 	if (ActiveBoostTimer > 0.f)
 	{
 		ActiveBoostTimer -= DeltaTime;
 		if (ActiveBoostTimer <= 0.f)
 		{
 			ActiveBoostTimer = 0.f;
-			ActiveBoostBonusSpeed = 0.f;
 		}
+	}
+
+	if (ActiveBoostTimer > 0.f)
+	{
+		CurrentBoostExtraSpeed = ActiveBoostBonusSpeed;
+	}
+	else
+	{
+		CurrentBoostExtraSpeed = FMath::Max(0.f, CurrentBoostExtraSpeed - BoostDecaySpeed * DeltaTime);
 	}
 
 	//Lissage du steering
@@ -279,13 +302,17 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 			(CurrentSteeringInput > DriftDirectionSwitchThreshold) ? 1 :
 			(CurrentSteeringInput < -DriftDirectionSwitchThreshold) ? -1 : 0;
 
-		if (NewSteerDirection != 0 && DriftChargeDirection != 0 && NewSteerDirection != DriftChargeDirection)
+		if (NewSteerDirection != 0 &&
+			DriftChargeDirection != 0 &&
+			NewSteerDirection != DriftChargeDirection &&
+			DriftDirectionChangeCooldownTimer <= 0.f)
 		{
 			DriftCharge = 0.f;
 			DriftHeldTime = 0.f;
 			DriftChargeDirection = NewSteerDirection;
 			DriftDirection = NewSteerDirection;
 			bDriftBoostStillValid = true;
+			DriftDirectionChangeCooldownTimer = DriftDirectionChangeCooldown;
 		}
 	}
 
@@ -326,17 +353,23 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 	//mouvement hors drift
 	if (!bIsDrifting)
 	{
-		if (CurrentSpeed > MinSpeedToTurn && !FMath::IsNearlyZero(CurrentSteeringInput, 0.01f))
+		const float PostDriftSteeringInput = GetPostDriftSteeringInput(CurrentSteeringInput);
+
+		if (CurrentSpeed > MinSpeedToTurn && !FMath::IsNearlyZero(PostDriftSteeringInput, 0.01f))
 		{
-			const float YawDelta = CurrentSteeringInput * BaseTurnRate * DeltaTime;
+			const float YawDelta = PostDriftSteeringInput * BaseTurnRate * DeltaTime;
 			AddActorLocalRotation(FRotator(0.f, YawDelta, 0.f));
 		}
+
+		const float ExitInterpSpeed = bPostDriftRecoveryActive
+			? PostDriftRotationBlendSpeed
+			: DriftAngleInterpSpeed;
 
 		CurrentDriftAngle = FMath::FInterpTo(
 			CurrentDriftAngle,
 			0.f,
 			DeltaTime,
-			DriftAngleInterpSpeed
+			ExitInterpSpeed
 		);
 
 		const FVector DesiredVelocity = GetActorForwardVector() * CurrentSpeed;
@@ -487,6 +520,9 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 
 	if (bWasDriftingLastFrame && !bIsDrifting)
 	{
+		LastDriftDirection = DriftDirection;
+		BeginPostDriftRecovery();
+
 		if (bDriftBoostStillValid && DriftHeldTime >= MinChargeTimeForBoost)
 		{
 			if (DriftCharge >= LargeBoostCharge)
@@ -510,6 +546,7 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 		DriftHeldTime = 0.f;
 		bDriftBoostStillValid = false;
 		DriftChargeDirection = 0;
+		DriftDirection = 0;
 	}
 
 	bWasDriftingLastFrame = bIsDrifting;
@@ -864,6 +901,7 @@ void ASTR_RacerPawn::StartDriftBoost(float BonusSpeed, float Duration)
 	ActiveBoostBonusSpeed = BonusSpeed;
 	ActiveBoostTimer = Duration;
 	CurrentSpeed = FMath::Min(CurrentSpeed + BonusSpeed, MaxSpeed + BonusSpeed);
+	CurrentBoostExtraSpeed = FMath::Max(CurrentBoostExtraSpeed, BonusSpeed);
 }
 
 void ASTR_RacerPawn::SetSteeringInput(float InSteer)
@@ -1447,5 +1485,39 @@ void ASTR_RacerPawn::ShowRuntimeDriftTuningMessage() const
 			Msg
 		);
 	}
+}
+
+void ASTR_RacerPawn::BeginPostDriftRecovery()
+{
+	bPostDriftRecoveryActive = true;
+	PostDriftRecoveryTimer = PostDriftRecoveryDuration;
+}
+
+float ASTR_RacerPawn::GetPostDriftSteeringInput(float RawSteeringInput) const
+{
+	if (!bPostDriftRecoveryActive || LastDriftDirection == 0)
+	{
+		return RawSteeringInput;
+	}
+
+	const float Alpha = 1.f - (PostDriftRecoveryTimer / FMath::Max(PostDriftRecoveryDuration, KINDA_SMALL_NUMBER));
+	const float RecoveryStrength = 1.f - Alpha; // fort au debut, puis diminue
+
+	const float SteeringVsLastDrift = RawSteeringInput * LastDriftDirection;
+
+	float Multiplier = 1.f;
+
+	if (SteeringVsLastDrift > 0.f)
+	{
+		// meme sens que le drift qu'on vient de quitter = gros frein
+		Multiplier = FMath::Lerp(PostDriftSteerSameDirectionMultiplier, 1.f, Alpha);
+	}
+	else if (SteeringVsLastDrift < 0.f)
+	{
+		// contre steer / correction = presque libre
+		Multiplier = FMath::Lerp(PostDriftSteerOppositeDirectionMultiplier, 1.f, Alpha);
+	}
+
+	return RawSteeringInput * Multiplier;
 }
 
