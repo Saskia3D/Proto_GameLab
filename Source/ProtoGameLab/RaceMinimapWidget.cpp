@@ -160,7 +160,7 @@ FVector2D URaceMinimapWidget::ResolveMinimapOrigin(const FVector2D& ViewSize, co
 		break;
 	case EMinimapScreenCorner::SeamCenter:
 		// Center of minimap sits exactly on the vertical split line (right edge of P1's viewport)
-		Origin = FVector2D(ViewSize.X - (BoxSize.X * 0.5f), ViewSize.Y - BoxSize.Y - VerticalPadding);
+		Origin = FVector2D((ViewSize.X - BoxSize.X )* 0.5f, (ViewSize.Y - BoxSize.Y)*0.5);
 		break;
 	case EMinimapScreenCorner::TopLeft:
 	default:
