@@ -944,3 +944,28 @@ int32 ARaceGameMode::GetDisplayedLapForController(AController* Controller) const
 	return FMath::Clamp(Progress->Lap + 1, 1, TotalLaps);
 }
 
+bool ARaceGameMode::IsFinishCountdownActive() const
+{
+	if (!bUseFinishCountdown || !bFinishCountdownStarted || RaceState != ERaceState::Running || bHasTriggeredEndMenu || !GetWorld())
+	{
+		return false;
+	}
+
+	return GetWorld()->GetTimerManager().IsTimerActive(FinishCountdownHandle);
+}
+
+float ARaceGameMode::GetFinishCountdownRemaining() const
+{
+	if (!IsFinishCountdownActive() || !GetWorld())
+	{
+		return 0.f;
+	}
+
+	return GetWorld()->GetTimerManager().GetTimerRemaining(FinishCountdownHandle);
+}
+
+int32 ARaceGameMode::GetFinishCountdownRemainingSeconds() const
+{
+	return FMath::CeilToInt(GetFinishCountdownRemaining());
+}
+

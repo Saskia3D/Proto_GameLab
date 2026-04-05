@@ -63,7 +63,8 @@ void UMainMenuWidget::OnPlayClicked()
 		TSubclassOf<UVehicleSelectionWidget> WidgetClass = VehicleSelectionWidgetClass;
 		if (!WidgetClass)
 		{
-			WidgetClass = UVehicleSelectionWidget::StaticClass();
+			UE_LOG(LogTemp, Error, TEXT("[MAIN MENU] VehicleSelectionWidgetClass is not set"));
+			return;
 		}
 
 		if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))

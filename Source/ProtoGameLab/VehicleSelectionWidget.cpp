@@ -214,7 +214,7 @@ TSharedRef<SWidget> UVehicleSelectionWidget::RebuildWidget()
 	InitializeDefaultVehicleOptions();
 	CacheThemeFont();
 	BuildRuntimeWidget();
-	UE_LOG(LogTemp, Warning, TEXT("[VEHICLE SELECT] RebuildWidget built runtime tree with %d options"), VehicleOptions.Num());
+	//UE_LOG(LogTemp, Warning, TEXT("[VEHICLE SELECT] RebuildWidget built runtime tree with %d options"), VehicleOptions.Num());
 
 	return Super::RebuildWidget();
 }
@@ -222,12 +222,12 @@ TSharedRef<SWidget> UVehicleSelectionWidget::RebuildWidget()
 void UVehicleSelectionWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
-	UE_LOG(LogTemp, Warning, TEXT("[VEHICLE SELECT] NativeConstruct"));
+	//UE_LOG(LogTemp, Warning, TEXT("[VEHICLE SELECT] NativeConstruct"));
 
 	SetIsFocusable(true);
 	EnsureTwoLocalPlayers();
 	bPendingInitialPreviewSetup = true;
-	UE_LOG(LogTemp, Warning, TEXT("[VEHICLE SELECT] Runtime widget ready with %d options"), VehicleOptions.Num());
+	//UE_LOG(LogTemp, Warning, TEXT("[VEHICLE SELECT] Runtime widget ready with %d options"), VehicleOptions.Num());
 
 	ResetAcceptInputGate(0.25f);
 	ConfigureSelectionInput();
@@ -378,7 +378,6 @@ void UVehicleSelectionWidget::InitializeDefaultVehicleOptions()
 	AddDefaultVehicle(TEXT("CAR 2"), TEXT("/Game/Cars/Car2.Car2"));
 	AddDefaultVehicle(TEXT("CAR 3"), TEXT("/Game/Cars/Car3.Car3"));
 }
-
 void UVehicleSelectionWidget::CacheThemeFont()
 {
 	LoadedThemeFontObject = nullptr;

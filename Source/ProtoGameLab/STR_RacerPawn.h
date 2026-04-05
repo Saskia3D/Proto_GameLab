@@ -20,6 +20,8 @@ class URaceMinimapWidget;
 class ATrackSplineActor;
 class UNiagaraSystem;
 
+class ARaceGameMode;
+
 enum class EDriftTuningParam : uint8
 {
 	TurnRateMultiplier,
@@ -538,5 +540,7 @@ protected:
 
 	void BeginPostDriftRecovery();
 	float GetPostDriftSteeringInput(float RawSteeringInput) const;
+
+	ATrackSplineActor* ResolveTrackSplineActor();
 };
 
