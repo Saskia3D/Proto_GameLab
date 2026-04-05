@@ -14,6 +14,12 @@ class PROTOGAMELAB_API UVHSBuff : public UBuffBase
 public:
 	virtual void Activate(APawn* Player) override;
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "Audio")
+	void OnVHSActivated();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Audio")
+	void OnVHSExpired();
+
 protected:
 	virtual void OnBuffExpired() override;
 

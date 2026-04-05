@@ -72,11 +72,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Track|Query")
 	bool IsLocationOnTrack(const FVector& WorldLocation, float ExtraMargin = 0.f) const;
 
-    UFUNCTION(BlueprintCallable, Category = "Track|Query")
+	UFUNCTION(BlueprintCallable, Category = "Track|Query")
 	float GetClosestDistanceAlongSpline(const FVector& WorldLocation) const;
 
 	UFUNCTION(BlueprintCallable, Category = "Track|Query")
-	
+	FVector GetClosestWorldLocationOnTrack(const FVector& WorldLocation) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Track|Query")
+	float GetTrackZAtWorldLocation(const FVector& WorldLocation) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Track|Query")
+
 	FVector GetTrackForwardDirectionAtWorldLocation(const FVector& WorldLocation) const;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|FinishLine")
 	TSubclassOf<AFinishLine> FinishLineClass;

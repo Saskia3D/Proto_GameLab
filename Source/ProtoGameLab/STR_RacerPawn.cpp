@@ -177,6 +177,9 @@ void ASTR_RacerPawn::BeginPlay()
 
 	TrackSplineActor = ResolveTrackSplineActor();
 
+	InitializeHeightLock();
+	EnforceTrackHeight(true);
+
 	if (!TrackSplineActor)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[OFF TRACK] No TrackSplineActor found for %s"), *GetName());
@@ -185,6 +188,35 @@ void ASTR_RacerPawn::BeginPlay()
 	BoxComp->OnComponentHit.AddDynamic(this, &ASTR_RacerPawn::OnHit);
 	ApplySelectedVehicleMesh();
 	EnsureMinimapWidget();
+}
+
+void ASTR_RacerPawn::InitializeHeightLock()
+{
+	LockedWorldZ = GetActorLocation().Z;
+}
+
+void ASTR_RacerPawn::EnforceTrackHeight(bool bTeleport)
+{
+	if (!bLockHeightToTrack)
+	{
+		return;
+	}
+
+	FVector FixedLocation = GetActorLocation();
+
+	if (FMath::IsNearlyEqual(FixedLocation.Z, LockedWorldZ, 0.1f))
+	{
+		return;
+	}
+
+	FixedLocation.Z = LockedWorldZ;
+
+	SetActorLocation(
+		FixedLocation,
+		false,
+		nullptr,
+		ETeleportType::TeleportPhysics
+	);
 }
 
 void ASTR_RacerPawn::Tick(float DeltaTime)
@@ -587,14 +619,17 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 	bWasDriftingLastFrame = bIsDrifting;
 	LastTravelDir = CurrentTravelDir;
 
-	const FVector Delta = MoveVelocity * DeltaTime;
+	MoveVelocity.Z = 0.f;
+
+	const FVector Delta = FVector(MoveVelocity.X, MoveVelocity.Y, 0.f) * DeltaTime;
 
 	FHitResult Hit;
 	BoxComp->MoveComponent(Delta, GetActorRotation(), !bIgnoreObstacleHits, &Hit);
+	EnforceTrackHeight();
 
 	if (DeltaTime > 0.f)
 	{
-		BoxComp->ComponentVelocity = MoveVelocity;
+		BoxComp->ComponentVelocity = FVector(MoveVelocity.X, MoveVelocity.Y, 0.f);
 	}
 
 	UpdateSafeRecoveryPoint();
@@ -675,6 +710,8 @@ void ASTR_RacerPawn::UpdateSafeRecoveryPoint()
 
 	bHasSafeRecoveryPoint = true;
 	LastSafeLocation = GetActorLocation();
+
+	LastSafeLocation.Z = LockedWorldZ;
 
 	FVector SafeForward = MoveVelocity.GetSafeNormal2D();
 	if (SafeForward.IsNearlyZero())
@@ -1050,12 +1087,12 @@ void ASTR_RacerPawn::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 
 	LastHitTime = GetWorld()->TimeSeconds;
 
-	// Direction de collision
-	FVector KnockbackDir = Hit.ImpactNormal;
+	FVector KnockbackDir = Hit.ImpactNormal.GetSafeNormal2D();
 
-	// Petit lift pour éviter de rester collé
-	KnockbackDir.Z += 0.25f;
-	KnockbackDir.Normalize();
+	if (KnockbackDir.IsNearlyZero())
+	{
+		KnockbackDir = (-GetActorForwardVector()).GetSafeNormal2D();
+	}
 
 	// Détection du type de choc (face vs côté)
 	const float Dot = FVector::DotProduct(GetActorForwardVector(), KnockbackDir);
@@ -1069,6 +1106,7 @@ void ASTR_RacerPawn::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 	{
 		// CHOC LATÉRAL -> push
 		MoveVelocity += KnockbackDir * KnockbackStrength;
+		MoveVelocity.Z = 0.f;
 	}
 
 	// Réduction de vitesse globale
@@ -1110,7 +1148,9 @@ void ASTR_RacerPawn::TeleportBackToTrack()
 		SafeForward = FVector::ForwardVector;
 	}
 
-	const FVector NewLocation = LastSafeLocation + FVector(0.f, 0.f, RecoveryHeightOffset);
+	FVector NewLocation = LastSafeLocation;
+
+	NewLocation.Z = LockedWorldZ;
 	const FRotator NewRotation = SafeForward.Rotation();
 
 	SetActorLocationAndRotation(
@@ -1120,6 +1160,9 @@ void ASTR_RacerPawn::TeleportBackToTrack()
 		nullptr,
 		ETeleportType::TeleportPhysics
 	);
+
+	MoveVelocity.Z = 0.f;
+	EnforceTrackHeight(true);
 
 	// Reset état drift / boost
 	bIsDrifting = false;
