@@ -11,6 +11,8 @@ void UVHSBuff::Activate(APawn* Player)
 
 	ApplyVHS();
 
+	OnVHSActivated();
+
 	UE_LOG(LogTemp, Warning, TEXT("VHS Activated"));
 
 	Super::Activate(Player);
@@ -42,6 +44,8 @@ void UVHSBuff::ApplyVHS()
 void UVHSBuff::OnBuffExpired()
 {
 	RemoveVHS();
+
+	OnVHSExpired();
 
 	UE_LOG(LogTemp, Warning, TEXT("VHS Expired"));
 
