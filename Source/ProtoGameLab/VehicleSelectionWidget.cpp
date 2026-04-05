@@ -13,6 +13,7 @@
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
 #include "Components/Viewport.h"
+#include "Engine/Blueprint.h"
 #include "Engine/StaticMesh.h"
 #include "Framework/Application/SlateApplication.h"
 #include "GameFramework/PlayerController.h"
@@ -21,6 +22,8 @@
 #include "Input/Reply.h"
 #include "InputCoreTypes.h"
 #include "Kismet/GameplayStatics.h"
+#include "Math/BoxSphereBounds.h"
+#include "Materials/MaterialInterface.h"
 #include "ProtoGameLabGameInstance.h"
 #include "STR_RacerPawn.h"
 #include "Styling/CoreStyle.h"
@@ -92,6 +95,113 @@ namespace VehicleSelectionWidgetPrivate
 
 		return FString::Printf(TEXT("CAR %d"), Index + 1);
 	}
+
+	FSoftObjectPath GetVehicleSourcePath(const FVehicleSelectionOption& Option)
+	{
+		return !Option.VehicleSourceAsset.IsNull() ? Option.VehicleSourceAsset : Option.VehicleMesh.ToSoftObjectPath();
+	}
+
+	struct FResolvedVehiclePreviewData
+	{
+		UStaticMesh* Mesh = nullptr;
+		TArray<UMaterialInterface*> Materials;
+		FVector RelativeLocation = FVector::ZeroVector;
+		FRotator RelativeRotation = FRotator::ZeroRotator;
+		FVector RelativeScale = FVector(1.f, 1.f, 1.f);
+
+		bool IsValid() const
+		{
+			return Mesh != nullptr;
+		}
+	};
+
+	FResolvedVehiclePreviewData ResolveVehiclePreviewDataFromClass(UClass* VehicleClass)
+	{
+		FResolvedVehiclePreviewData PreviewData;
+
+		if (!VehicleClass || !VehicleClass->IsChildOf(ASTR_RacerPawn::StaticClass()))
+		{
+			return PreviewData;
+		}
+
+		const ASTR_RacerPawn* DefaultPawn = Cast<ASTR_RacerPawn>(VehicleClass->GetDefaultObject());
+		if (!DefaultPawn || !DefaultPawn->CarMesh)
+		{
+			return PreviewData;
+		}
+
+		PreviewData.Mesh = DefaultPawn->CarMesh->GetStaticMesh();
+		PreviewData.RelativeLocation = DefaultPawn->CarMesh->GetRelativeLocation();
+		PreviewData.RelativeRotation = DefaultPawn->CarMesh->GetRelativeRotation();
+		PreviewData.RelativeScale = DefaultPawn->CarMesh->GetRelativeScale3D();
+
+		const int32 NumMaterials = DefaultPawn->CarMesh->GetNumMaterials();
+		PreviewData.Materials.Reserve(NumMaterials);
+		for (int32 MaterialIndex = 0; MaterialIndex < NumMaterials; ++MaterialIndex)
+		{
+			PreviewData.Materials.Add(DefaultPawn->CarMesh->GetMaterial(MaterialIndex));
+		}
+
+		return PreviewData;
+	}
+
+	FResolvedVehiclePreviewData ResolveVehiclePreviewDataFromPath(const FSoftObjectPath& VehiclePath)
+	{
+		FResolvedVehiclePreviewData PreviewData;
+
+		if (VehiclePath.IsNull())
+		{
+			return PreviewData;
+		}
+
+		if (UObject* LoadedObject = VehiclePath.TryLoad())
+		{
+			if (UStaticMesh* StaticMesh = Cast<UStaticMesh>(LoadedObject))
+			{
+				PreviewData.Mesh = StaticMesh;
+				return PreviewData;
+			}
+
+			if (UBlueprint* Blueprint = Cast<UBlueprint>(LoadedObject))
+			{
+				return ResolveVehiclePreviewDataFromClass(Blueprint->GeneratedClass);
+			}
+
+			if (UClass* LoadedClass = Cast<UClass>(LoadedObject))
+			{
+				return ResolveVehiclePreviewDataFromClass(LoadedClass);
+			}
+		}
+
+		return PreviewData;
+	}
+
+	FVector GetPreviewFocusPoint(const FBoxSphereBounds& Bounds)
+	{
+		return Bounds.Origin + FVector(0.f, 0.f, Bounds.BoxExtent.Z * 0.08f);
+	}
+
+	void FramePreviewViewport(
+		UViewport* PreviewViewport,
+		const FBoxSphereBounds& Bounds,
+		const FRotator& OrbitRotation,
+		const float DistanceMultiplier,
+		const float MinimumDistance)
+	{
+		if (!PreviewViewport || Bounds.SphereRadius <= KINDA_SMALL_NUMBER)
+		{
+			return;
+		}
+
+		const FVector FocusPoint = GetPreviewFocusPoint(Bounds);
+		const FVector ViewDirection = OrbitRotation.Vector().GetSafeNormal();
+		const float CameraDistance = FMath::Max(MinimumDistance, Bounds.SphereRadius * DistanceMultiplier);
+		const FVector ViewLocation = FocusPoint - (ViewDirection * CameraDistance);
+		const FRotator ViewRotation = (FocusPoint - ViewLocation).Rotation();
+
+		PreviewViewport->SetViewLocation(ViewLocation);
+		PreviewViewport->SetViewRotation(ViewRotation);
+	}
 }
 
 void UVehicleSelectionWidget::SetTargetLevelName(const FName InTargetLevelName)
@@ -139,6 +249,16 @@ void UVehicleSelectionWidget::NativeTick(const FGeometry& MyGeometry, const floa
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
 	UpdateAcceptInputGate(InDeltaTime);
+
+	if (bTransitionToTargetLevelPending)
+	{
+		TransitionDelayRemaining = FMath::Max(0.f, TransitionDelayRemaining - InDeltaTime);
+		if (TransitionDelayRemaining <= 0.f)
+		{
+			CompleteAdvanceToTargetLevel();
+			return;
+		}
+	}
 
 	if (bPendingInitialPreviewSetup)
 	{
@@ -250,7 +370,7 @@ void UVehicleSelectionWidget::InitializeDefaultVehicleOptions()
 	{
 		FVehicleSelectionOption& NewOption = VehicleOptions.AddDefaulted_GetRef();
 		NewOption.DisplayName = FText::FromString(Name);
-		NewOption.VehicleMesh = TSoftObjectPtr<UStaticMesh>(FSoftObjectPath(AssetPath));
+		NewOption.VehicleSourceAsset = FSoftObjectPath(AssetPath);
 		NewOption.PreviewScale = FVector(1.0f, 1.0f, 1.0f);
 	};
 
@@ -567,7 +687,7 @@ void UVehicleSelectionWidget::SaveSelectionsToGameInstance() const
 	{
 		if (VehicleOptions.IsValidIndex(PlayerState.SelectedIndex))
 		{
-			SelectedMeshes.Add(VehicleOptions[PlayerState.SelectedIndex].VehicleMesh.ToSoftObjectPath());
+			SelectedMeshes.Add(VehicleSelectionWidgetPrivate::GetVehicleSourcePath(VehicleOptions[PlayerState.SelectedIndex]));
 		}
 		else
 		{
@@ -580,19 +700,24 @@ void UVehicleSelectionWidget::SaveSelectionsToGameInstance() const
 
 void UVehicleSelectionWidget::TryAdvanceToTargetLevel()
 {
-	if (PlayerStates.Num() < 2)
+	if (!AreAllPlayersConfirmed())
 	{
 		return;
 	}
 
-	for (const FVehicleSelectionPlayerState& PlayerState : PlayerStates)
-	{
-		if (!PlayerState.bConfirmed)
-		{
-			return;
-		}
-	}
+	bTransitionToTargetLevelPending = true;
+	TransitionDelayRemaining = FMath::Max(0.f, TransitionDelaySeconds);
+	RefreshBottomInstruction();
 
+	if (TransitionDelayRemaining <= 0.f)
+	{
+		CompleteAdvanceToTargetLevel();
+	}
+}
+
+void UVehicleSelectionWidget::CompleteAdvanceToTargetLevel()
+{
+	bTransitionToTargetLevelPending = false;
 	SaveSelectionsToGameInstance();
 
 	const FName LevelToOpen = TargetLevelName.IsNone() ? FName(TEXT("Lvl_Test_2Players")) : TargetLevelName;
@@ -626,6 +751,8 @@ void UVehicleSelectionWidget::FinalizeInitialPreviewSetup()
 		UpdatePlayerCard(PlayerIndex);
 		RefreshPreview(PlayerIndex);
 	}
+
+	RefreshBottomInstruction();
 }
 
 void UVehicleSelectionWidget::ConfigurePreviewViewport(const int32 PlayerIndex)
@@ -642,6 +769,11 @@ void UVehicleSelectionWidget::ConfigurePreviewViewport(const int32 PlayerIndex)
 	}
 
 	PreviewViewport->SetEnableAdvancedFeatures(true);
+	PreviewViewport->SetLightIntensity(8.0f);
+	PreviewViewport->SetSkyIntensity(1.2f);
+	PreviewViewport->SetShowFlag(TEXT("SkyAtmosphere"), false);
+	PreviewViewport->SetShowFlag(TEXT("Atmosphere"), false);
+	PreviewViewport->SetShowFlag(TEXT("Fog"), false);
 	PreviewViewport->SetViewLocation(PreviewCameraLocation);
 	PreviewViewport->SetViewRotation(PreviewCameraRotation);
 }
@@ -674,11 +806,18 @@ void UVehicleSelectionWidget::HandleSelectionChange(const int32 PlayerIndex, con
 
 	FVehicleSelectionPlayerState& PlayerState = PlayerStates[PlayerIndex];
 	const int32 NumVehicles = VehicleOptions.Num();
+	const bool bWasConfirmed = PlayerState.bConfirmed;
 	PlayerState.SelectedIndex = (PlayerState.SelectedIndex + Direction + NumVehicles) % NumVehicles;
 	PlayerState.bConfirmed = false;
+	bTransitionToTargetLevelPending = false;
+	TransitionDelayRemaining = 0.f;
 
 	UpdatePlayerCard(PlayerIndex);
 	RefreshPreview(PlayerIndex);
+	if (bWasConfirmed)
+	{
+		RefreshBottomInstruction();
+	}
 }
 
 void UVehicleSelectionWidget::HandleConfirm(const int32 PlayerIndex)
@@ -689,13 +828,19 @@ void UVehicleSelectionWidget::HandleConfirm(const int32 PlayerIndex)
 	}
 
 	FVehicleSelectionPlayerState& PlayerState = PlayerStates[PlayerIndex];
-	if (!PlayerState.bConfirmed)
+	PlayerState.bConfirmed = !PlayerState.bConfirmed;
+	if (PlayerState.bConfirmed)
 	{
-		PlayerState.bConfirmed = true;
 		UpdatePlayerCard(PlayerIndex);
+		TryAdvanceToTargetLevel();
 	}
-
-	TryAdvanceToTargetLevel();
+	else
+	{
+		bTransitionToTargetLevelPending = false;
+		TransitionDelayRemaining = 0.f;
+		UpdatePlayerCard(PlayerIndex);
+		RefreshBottomInstruction();
+	}
 }
 
 void UVehicleSelectionWidget::UpdatePlayerCard(const int32 PlayerIndex)
@@ -726,15 +871,49 @@ void UVehicleSelectionWidget::UpdatePlayerCard(const int32 PlayerIndex)
 
 	if (PlayerState.StatusLabel)
 	{
-		PlayerState.StatusLabel->SetText(PlayerState.bConfirmed ? ReadyStatusText : WaitingStatusText);
+		PlayerState.StatusLabel->SetText(PlayerState.bConfirmed ? LockedInText : WaitingStatusText);
 		PlayerState.StatusLabel->SetColorAndOpacity(FSlateColor(PlayerState.bConfirmed ? VehicleSelectionWidgetPrivate::ReadyTextColor : VehicleSelectionWidgetPrivate::MutedTextColor));
 	}
 
 	if (PlayerState.ConfirmLabel)
 	{
-		PlayerState.ConfirmLabel->SetText(PlayerState.bConfirmed ? LockedInText : ConfirmPromptText);
+		PlayerState.ConfirmLabel->SetText(PlayerState.bConfirmed ? UnlockPromptText : ConfirmPromptText);
 		PlayerState.ConfirmLabel->SetColorAndOpacity(FSlateColor(PlayerState.bConfirmed ? VehicleSelectionWidgetPrivate::ReadyTextColor : VehicleSelectionWidgetPrivate::DefaultTextColor));
 	}
+}
+
+void UVehicleSelectionWidget::RefreshBottomInstruction()
+{
+	if (!BottomInstructionText)
+	{
+		return;
+	}
+
+	if (bTransitionToTargetLevelPending)
+	{
+		BottomInstructionText->SetText(StartingTutorialText);
+		return;
+	}
+
+	BottomInstructionText->SetText(AreAllPlayersConfirmed() ? ReadyStatusText : BottomInstructionTextContent);
+}
+
+bool UVehicleSelectionWidget::AreAllPlayersConfirmed() const
+{
+	if (PlayerStates.Num() < 2)
+	{
+		return false;
+	}
+
+	for (const FVehicleSelectionPlayerState& PlayerState : PlayerStates)
+	{
+		if (!PlayerState.bConfirmed)
+		{
+			return false;
+		}
+	}
+
+	return true;
 }
 
 void UVehicleSelectionWidget::RefreshPreview(const int32 PlayerIndex)
@@ -761,15 +940,34 @@ void UVehicleSelectionWidget::RefreshPreview(const int32 PlayerIndex)
 
 	if (AVehicleSelectionPreviewActor* PreviewActor = Cast<AVehicleSelectionPreviewActor>(PlayerState.PreviewViewport->Spawn(PreviewClass)))
 	{
-		if (UStaticMesh* VehicleMesh = VehicleOption.VehicleMesh.LoadSynchronous())
+		const VehicleSelectionWidgetPrivate::FResolvedVehiclePreviewData PreviewData =
+			VehicleSelectionWidgetPrivate::ResolveVehiclePreviewDataFromPath(
+				VehicleSelectionWidgetPrivate::GetVehicleSourcePath(VehicleOption));
+
+		if (PreviewData.IsValid())
 		{
-			PreviewActor->SetPreviewMesh(VehicleMesh);
+			PreviewActor->SetPreviewMesh(PreviewData.Mesh);
+			PreviewActor->SetPreviewMaterials(PreviewData.Materials);
+			PreviewActor->SetPreviewRelativeTransform(
+				PreviewData.RelativeLocation,
+				PreviewData.RelativeRotation,
+				PreviewData.RelativeScale);
 		}
 
 		PreviewActor->SetActorLocation(VehicleOption.PreviewLocation);
 		PreviewActor->SetActorRotation(VehicleOption.PreviewRotation);
 		PreviewActor->SetActorScale3D(VehicleOption.PreviewScale);
 		PlayerState.PreviewActor = PreviewActor;
+
+		if (PreviewData.IsValid())
+		{
+			VehicleSelectionWidgetPrivate::FramePreviewViewport(
+				PlayerState.PreviewViewport,
+				PreviewActor->GetPreviewBounds(),
+				PreviewCameraRotation,
+				PreviewCameraDistanceMultiplier,
+				PreviewMinimumCameraDistance);
+		}
 	}
 }
 
