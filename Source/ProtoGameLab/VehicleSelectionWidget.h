@@ -29,6 +29,9 @@ struct FVehicleSelectionOption
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vehicle", meta = (AllowedClasses = "/Script/Engine.StaticMesh"))
 	TSoftObjectPtr<UStaticMesh> VehicleMesh;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vehicle", meta = (AllowedClasses = "/Script/Engine.StaticMesh,/Script/Engine.Blueprint,/Script/CoreUObject.Class"))
+	FSoftObjectPath VehicleSourceAsset;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vehicle")
 	TSubclassOf<AVehicleSelectionPreviewActor> PreviewActorClass;
 
@@ -142,6 +145,12 @@ protected:
 	FText LockedInText = FText::FromString(TEXT("LOCKED IN"));
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Copy")
+	FText UnlockPromptText = FText::FromString(TEXT("PRESS A TO UNLOCK"));
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Copy")
+	FText StartingTutorialText = FText::FromString(TEXT("STARTING TUTORIAL..."));
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Copy")
 	FText BottomInstructionTextContent = FText::FromString(TEXT("P1: Q / D / SPACE   |   P2: LEFT / RIGHT / ENTER   |   GAMEPAD: DPAD + A"));
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Copy")
@@ -193,10 +202,19 @@ protected:
 	FVector2D PreviewSize = FVector2D(520.f, 340.f);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Preview")
-	FVector PreviewCameraLocation = FVector(340.f, 0.f, 110.f);
+	FVector PreviewCameraLocation = FVector(520.f, -180.f, 135.f);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Preview")
-	FRotator PreviewCameraRotation = FRotator(-10.f, 180.f, 0.f);
+	FRotator PreviewCameraRotation = FRotator(-12.f, 160.f, 0.f);
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Preview", meta = (ClampMin = "0.5", UIMin = "0.5"))
+	float PreviewCameraDistanceMultiplier = 1.75f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Preview", meta = (ClampMin = "50.0", UIMin = "50.0"))
+	float PreviewMinimumCameraDistance = 130.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Navigation")
+	float TransitionDelaySeconds = 1.0f;
 
 private:
 	UPROPERTY(Transient)
@@ -213,9 +231,11 @@ private:
 
 	FSlateFontInfo ThemeFontInfo;
 	float AcceptInputArmDelayRemaining = 0.f;
+	float TransitionDelayRemaining = 0.f;
 	bool bAcceptInputArmed = false;
 	bool bAcceptPressedDuringGate = false;
 	bool bPendingInitialPreviewSetup = false;
+	bool bTransitionToTargetLevelPending = false;
 
 	UFUNCTION()
 	void OnPlayerOneLeftClicked();
@@ -244,12 +264,15 @@ private:
 	void FocusAllUsers();
 	void SaveSelectionsToGameInstance() const;
 	void TryAdvanceToTargetLevel();
+	void CompleteAdvanceToTargetLevel();
 	void FinalizeInitialPreviewSetup();
 	void ConfigurePreviewViewport(int32 PlayerIndex);
 	void SilenceMainMenuWorldActors();
 	void HandleSelectionChange(int32 PlayerIndex, int32 Direction);
 	void HandleConfirm(int32 PlayerIndex);
 	void UpdatePlayerCard(int32 PlayerIndex);
+	void RefreshBottomInstruction();
+	bool AreAllPlayersConfirmed() const;
 	void RefreshPreview(int32 PlayerIndex);
 	void ResetAcceptInputGate(float ArmDelaySeconds);
 	void UpdateAcceptInputGate(float DeltaTime);

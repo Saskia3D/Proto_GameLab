@@ -6,6 +6,7 @@
 #include "ProtoGameLabGameInstance.h"
 #include "Camera/CameraComponent.h"
 #include "Components/BoxComponent.h"
+#include "Engine/Blueprint.h"
 #include "Engine/StaticMesh.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -22,6 +23,50 @@
 
 namespace
 {
+	UStaticMesh* ResolveVehicleMeshFromClass(UClass* VehicleClass)
+	{
+		if (!VehicleClass || !VehicleClass->IsChildOf(ASTR_RacerPawn::StaticClass()))
+		{
+			return nullptr;
+		}
+
+		const ASTR_RacerPawn* DefaultPawn = Cast<ASTR_RacerPawn>(VehicleClass->GetDefaultObject());
+		if (!DefaultPawn || !DefaultPawn->CarMesh)
+		{
+			return nullptr;
+		}
+
+		return DefaultPawn->CarMesh->GetStaticMesh();
+	}
+
+	UStaticMesh* ResolveVehicleMeshFromPath(const FSoftObjectPath& VehiclePath)
+	{
+		if (VehiclePath.IsNull())
+		{
+			return nullptr;
+		}
+
+		if (UObject* LoadedObject = VehiclePath.TryLoad())
+		{
+			if (UStaticMesh* StaticMesh = Cast<UStaticMesh>(LoadedObject))
+			{
+				return StaticMesh;
+			}
+
+			if (UBlueprint* Blueprint = Cast<UBlueprint>(LoadedObject))
+			{
+				return ResolveVehicleMeshFromClass(Blueprint->GeneratedClass);
+			}
+
+			if (UClass* LoadedClass = Cast<UClass>(LoadedObject))
+			{
+				return ResolveVehicleMeshFromClass(LoadedClass);
+			}
+		}
+
+		return nullptr;
+	}
+
 	UProjectileBuff* FindActiveProjectileBuff(UBuffComponent* BuffComponent)
 	{
 		if (!BuffComponent)
@@ -771,7 +816,7 @@ void ASTR_RacerPawn::ApplySelectedVehicleMesh()
 		return;
 	}
 
-	if (UStaticMesh* SelectedMesh = Cast<UStaticMesh>(SelectedMeshPath.TryLoad()))
+	if (UStaticMesh* SelectedMesh = ResolveVehicleMeshFromPath(SelectedMeshPath))
 	{
 		CarMesh->SetStaticMesh(SelectedMesh);
 	}
