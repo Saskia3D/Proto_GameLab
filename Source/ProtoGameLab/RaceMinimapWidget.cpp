@@ -38,7 +38,6 @@ void URaceMinimapWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTi
 
 void URaceMinimapWidget::RefreshTrackCache()
 {
-	CachedTrackSpline = Cast<ATrackSplineActor>(UGameplayStatics::GetActorOfClass(GetWorld(), ATrackSplineActor::StaticClass()));
 	CachedSplineSamples.Reset();
 	CachedWorldBounds = FBox2D(EForceInit::ForceInit);
 	bHasValidTrackCache = false;
@@ -449,4 +448,10 @@ int32 URaceMinimapWidget::NativePaint(
 	OutDrawElements.PopClip();
 
 	return Super::NativePaint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, LayerId + 5, InWidgetStyle, bParentEnabled);
+}
+
+void URaceMinimapWidget::SetTrackSplineActor(ATrackSplineActor* InTrackSpline)
+{
+	CachedTrackSpline = InTrackSpline;
+	RefreshTrackCache();
 }

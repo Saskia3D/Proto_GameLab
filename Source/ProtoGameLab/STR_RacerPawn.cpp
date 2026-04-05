@@ -20,6 +20,7 @@
 #include "Engine/Engine.h"
 #include "Materials/MaterialInterface.h"
 #include "NiagaraFunctionLibrary.h"
+#include "RaceGameMode.h"
 #include "NiagaraSystem.h"
 
 namespace
@@ -174,9 +175,7 @@ void ASTR_RacerPawn::BeginPlay()
 {
 	Super::BeginPlay();
 
-	TrackSplineActor = Cast<ATrackSplineActor>(
-		UGameplayStatics::GetActorOfClass(GetWorld(), ATrackSplineActor::StaticClass())
-	);
+	TrackSplineActor = ResolveTrackSplineActor();
 
 	if (!TrackSplineActor)
 	{
@@ -606,14 +605,9 @@ void ASTR_RacerPawn::UpdateOffTrackState(float DeltaTime)
 	const bool bWasOffTrack = bIsOffTrack;
 	const bool bWasPenaltyActive = bOffTrackPenaltyActive;
 
-	if (!TrackSplineActor)
-	{
-		TrackSplineActor = Cast<ATrackSplineActor>(
-			UGameplayStatics::GetActorOfClass(GetWorld(), ATrackSplineActor::StaticClass())
-		);
-	}
+	ATrackSplineActor* ActiveTrack = ResolveTrackSplineActor();
 
-	if (!TrackSplineActor)
+	if (!ActiveTrack)
 	{
 		bIsOffTrack = false;
 		bOffTrackPenaltyActive = false;
@@ -621,7 +615,7 @@ void ASTR_RacerPawn::UpdateOffTrackState(float DeltaTime)
 		return;
 	}
 
-	bIsOffTrack = !TrackSplineActor->IsLocationOnTrack(GetActorLocation(), OffTrackDetectionMargin);
+	bIsOffTrack = !ActiveTrack->IsLocationOnTrack(GetActorLocation(), OffTrackDetectionMargin);
 
 	if (bIsOffTrack)
 	{
@@ -657,21 +651,21 @@ void ASTR_RacerPawn::UpdateOffTrackState(float DeltaTime)
 
 void ASTR_RacerPawn::UpdateSafeRecoveryPoint()
 {
-	if (!TrackSplineActor)
+	ATrackSplineActor* ActiveTrack = ResolveTrackSplineActor();
+
+	if (!ActiveTrack)
 	{
 		return;
 	}
 
-	const float TrackHalfWidth = TrackSplineActor->GetTrackHalfWidthWorld();
+	const float TrackHalfWidth = ActiveTrack->GetTrackHalfWidthWorld();
 	if (TrackHalfWidth <= KINDA_SMALL_NUMBER)
 	{
 		return;
 	}
 
-	const float DistanceToCenter = TrackSplineActor->GetDistanceFromTrackCenter2D(GetActorLocation());
+	const float DistanceToCenter = ActiveTrack->GetDistanceFromTrackCenter2D(GetActorLocation());
 
-	// On n'enregistre un point sûr que si le joueur est confortablement sur la piste,
-	// pas juste collé au bord.
 	const bool bComfortablyOnTrack = DistanceToCenter <= (TrackHalfWidth * SafeRecoveryTrackRatio);
 
 	if (!bComfortablyOnTrack)
@@ -839,6 +833,13 @@ void ASTR_RacerPawn::EnsureMinimapWidget()
 	MinimapWidget = CreateWidget<URaceMinimapWidget>(PC, MinimapWidgetClass);
 	if (MinimapWidget)
 	{
+		if (ATrackSplineActor* ActiveTrack = ResolveTrackSplineActor())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[MINIMAP] ActiveTrack for %s = %s"),
+				*GetName(), *GetNameSafe(ActiveTrack));
+			MinimapWidget->SetTrackSplineActor(ActiveTrack);
+		}
+
 		MinimapWidget->AddToViewport(40);
 	}
 }
@@ -1181,14 +1182,9 @@ void ASTR_RacerPawn::UpdateWrongWayState(float DeltaTime)
 	const bool bWasWrongWay = bIsGoingWrongWay;
 	const bool bWasWarningActive = bWrongWayWarningActive;
 
-	if (!TrackSplineActor)
-	{
-		TrackSplineActor = Cast<ATrackSplineActor>(
-			UGameplayStatics::GetActorOfClass(GetWorld(), ATrackSplineActor::StaticClass())
-		);
-	}
+	ATrackSplineActor* ActiveTrack = ResolveTrackSplineActor();
 
-	if (!TrackSplineActor)
+	if (!ActiveTrack)
 	{
 		bIsGoingWrongWay = false;
 		bWrongWayWarningActive = false;
@@ -1215,7 +1211,7 @@ void ASTR_RacerPawn::UpdateWrongWayState(float DeltaTime)
 	}
 
 	const FVector TravelDirection = MoveVelocity.GetSafeNormal2D();
-	const FVector TrackDirection = TrackSplineActor->GetTrackForwardDirectionAtWorldLocation(GetActorLocation());
+	const FVector TrackDirection = ActiveTrack->GetTrackForwardDirectionAtWorldLocation(GetActorLocation());
 
 	const float Dot = FVector::DotProduct(TravelDirection, TrackDirection);
 
@@ -1567,3 +1563,45 @@ float ASTR_RacerPawn::GetPostDriftSteeringInput(float RawSteeringInput) const
 	return RawSteeringInput * Multiplier;
 }
 
+ATrackSplineActor* ASTR_RacerPawn::ResolveTrackSplineActor()
+{
+	if (TrackSplineActor)
+	{
+		return TrackSplineActor;
+	}
+
+	if (UWorld* World = GetWorld())
+	{
+		if (ARaceGameMode* GM = Cast<ARaceGameMode>(UGameplayStatics::GetGameMode(World)))
+		{
+			TrackSplineActor = GM->GetRaceTrackSplineActor();
+			if (TrackSplineActor)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("[TRACK] %s got track from GameMode: %s"),
+					*GetName(), *GetNameSafe(TrackSplineActor));
+				return TrackSplineActor;
+			}
+		}
+
+		TArray<AActor*> FoundTracks;
+		UGameplayStatics::GetAllActorsOfClass(World, ATrackSplineActor::StaticClass(), FoundTracks);
+
+		for (AActor* Actor : FoundTracks)
+		{
+			if (Actor && Actor->ActorHasTag(TEXT("MainRaceTrack")))
+			{
+				TrackSplineActor = Cast<ATrackSplineActor>(Actor);
+
+				UE_LOG(LogTemp, Warning, TEXT("[TRACK] %s got track from tag MainRaceTrack: %s"),
+					*GetName(), *GetNameSafe(TrackSplineActor));
+
+				return TrackSplineActor;
+			}
+		}
+
+		UE_LOG(LogTemp, Warning, TEXT("[TRACK] %s failed to resolve TrackSplineActor | Found=%d"),
+			*GetName(), FoundTracks.Num());
+	}
+
+	return nullptr;
+}
