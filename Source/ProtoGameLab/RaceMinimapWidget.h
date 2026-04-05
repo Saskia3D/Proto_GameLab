@@ -86,6 +86,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap")
 	FLinearColor AIColor = FLinearColor(0.42f, 0.90f, 0.82f, 1.0f);
 
+	UFUNCTION(BlueprintCallable, Category = "Minimap")
+	void SetTrackSplineActor(ATrackSplineActor* InTrackSpline);
+
 private:
 	UPROPERTY(Transient)
 	TObjectPtr<ATrackSplineActor> CachedTrackSpline = nullptr;

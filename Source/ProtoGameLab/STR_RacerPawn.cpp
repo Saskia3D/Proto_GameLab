@@ -20,6 +20,7 @@
 #include "Engine/Engine.h"
 #include "Materials/MaterialInterface.h"
 #include "NiagaraFunctionLibrary.h"
+#include "RaceGameMode.h"
 #include "NiagaraSystem.h"
 
 namespace
@@ -174,9 +175,10 @@ void ASTR_RacerPawn::BeginPlay()
 {
 	Super::BeginPlay();
 
-	TrackSplineActor = Cast<ATrackSplineActor>(
-		UGameplayStatics::GetActorOfClass(GetWorld(), ATrackSplineActor::StaticClass())
-	);
+	TrackSplineActor = ResolveTrackSplineActor();
+
+	InitializeHeightLock();
+	EnforceTrackHeight(true);
 
 	if (!TrackSplineActor)
 	{
@@ -186,6 +188,35 @@ void ASTR_RacerPawn::BeginPlay()
 	BoxComp->OnComponentHit.AddDynamic(this, &ASTR_RacerPawn::OnHit);
 	ApplySelectedVehicleMesh();
 	EnsureMinimapWidget();
+}
+
+void ASTR_RacerPawn::InitializeHeightLock()
+{
+	LockedWorldZ = GetActorLocation().Z;
+}
+
+void ASTR_RacerPawn::EnforceTrackHeight(bool bTeleport)
+{
+	if (!bLockHeightToTrack)
+	{
+		return;
+	}
+
+	FVector FixedLocation = GetActorLocation();
+
+	if (FMath::IsNearlyEqual(FixedLocation.Z, LockedWorldZ, 0.1f))
+	{
+		return;
+	}
+
+	FixedLocation.Z = LockedWorldZ;
+
+	SetActorLocation(
+		FixedLocation,
+		false,
+		nullptr,
+		ETeleportType::TeleportPhysics
+	);
 }
 
 void ASTR_RacerPawn::Tick(float DeltaTime)
@@ -588,14 +619,17 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 	bWasDriftingLastFrame = bIsDrifting;
 	LastTravelDir = CurrentTravelDir;
 
-	const FVector Delta = MoveVelocity * DeltaTime;
+	MoveVelocity.Z = 0.f;
+
+	const FVector Delta = FVector(MoveVelocity.X, MoveVelocity.Y, 0.f) * DeltaTime;
 
 	FHitResult Hit;
 	BoxComp->MoveComponent(Delta, GetActorRotation(), !bIgnoreObstacleHits, &Hit);
+	EnforceTrackHeight();
 
 	if (DeltaTime > 0.f)
 	{
-		BoxComp->ComponentVelocity = MoveVelocity;
+		BoxComp->ComponentVelocity = FVector(MoveVelocity.X, MoveVelocity.Y, 0.f);
 	}
 
 	UpdateSafeRecoveryPoint();
@@ -606,14 +640,9 @@ void ASTR_RacerPawn::UpdateOffTrackState(float DeltaTime)
 	const bool bWasOffTrack = bIsOffTrack;
 	const bool bWasPenaltyActive = bOffTrackPenaltyActive;
 
-	if (!TrackSplineActor)
-	{
-		TrackSplineActor = Cast<ATrackSplineActor>(
-			UGameplayStatics::GetActorOfClass(GetWorld(), ATrackSplineActor::StaticClass())
-		);
-	}
+	ATrackSplineActor* ActiveTrack = ResolveTrackSplineActor();
 
-	if (!TrackSplineActor)
+	if (!ActiveTrack)
 	{
 		bIsOffTrack = false;
 		bOffTrackPenaltyActive = false;
@@ -621,7 +650,7 @@ void ASTR_RacerPawn::UpdateOffTrackState(float DeltaTime)
 		return;
 	}
 
-	bIsOffTrack = !TrackSplineActor->IsLocationOnTrack(GetActorLocation(), OffTrackDetectionMargin);
+	bIsOffTrack = !ActiveTrack->IsLocationOnTrack(GetActorLocation(), OffTrackDetectionMargin);
 
 	if (bIsOffTrack)
 	{
@@ -657,21 +686,21 @@ void ASTR_RacerPawn::UpdateOffTrackState(float DeltaTime)
 
 void ASTR_RacerPawn::UpdateSafeRecoveryPoint()
 {
-	if (!TrackSplineActor)
+	ATrackSplineActor* ActiveTrack = ResolveTrackSplineActor();
+
+	if (!ActiveTrack)
 	{
 		return;
 	}
 
-	const float TrackHalfWidth = TrackSplineActor->GetTrackHalfWidthWorld();
+	const float TrackHalfWidth = ActiveTrack->GetTrackHalfWidthWorld();
 	if (TrackHalfWidth <= KINDA_SMALL_NUMBER)
 	{
 		return;
 	}
 
-	const float DistanceToCenter = TrackSplineActor->GetDistanceFromTrackCenter2D(GetActorLocation());
+	const float DistanceToCenter = ActiveTrack->GetDistanceFromTrackCenter2D(GetActorLocation());
 
-	// On n'enregistre un point sûr que si le joueur est confortablement sur la piste,
-	// pas juste collé au bord.
 	const bool bComfortablyOnTrack = DistanceToCenter <= (TrackHalfWidth * SafeRecoveryTrackRatio);
 
 	if (!bComfortablyOnTrack)
@@ -681,6 +710,8 @@ void ASTR_RacerPawn::UpdateSafeRecoveryPoint()
 
 	bHasSafeRecoveryPoint = true;
 	LastSafeLocation = GetActorLocation();
+
+	LastSafeLocation.Z = LockedWorldZ;
 
 	FVector SafeForward = MoveVelocity.GetSafeNormal2D();
 	if (SafeForward.IsNearlyZero())
@@ -839,6 +870,13 @@ void ASTR_RacerPawn::EnsureMinimapWidget()
 	MinimapWidget = CreateWidget<URaceMinimapWidget>(PC, MinimapWidgetClass);
 	if (MinimapWidget)
 	{
+		if (ATrackSplineActor* ActiveTrack = ResolveTrackSplineActor())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[MINIMAP] ActiveTrack for %s = %s"),
+				*GetName(), *GetNameSafe(ActiveTrack));
+			MinimapWidget->SetTrackSplineActor(ActiveTrack);
+		}
+
 		MinimapWidget->AddToViewport(40);
 	}
 }
@@ -1049,12 +1087,12 @@ void ASTR_RacerPawn::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 
 	LastHitTime = GetWorld()->TimeSeconds;
 
-	// Direction de collision
-	FVector KnockbackDir = Hit.ImpactNormal;
+	FVector KnockbackDir = Hit.ImpactNormal.GetSafeNormal2D();
 
-	// Petit lift pour éviter de rester collé
-	KnockbackDir.Z += 0.25f;
-	KnockbackDir.Normalize();
+	if (KnockbackDir.IsNearlyZero())
+	{
+		KnockbackDir = (-GetActorForwardVector()).GetSafeNormal2D();
+	}
 
 	// Détection du type de choc (face vs côté)
 	const float Dot = FVector::DotProduct(GetActorForwardVector(), KnockbackDir);
@@ -1068,6 +1106,7 @@ void ASTR_RacerPawn::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 	{
 		// CHOC LATÉRAL -> push
 		MoveVelocity += KnockbackDir * KnockbackStrength;
+		MoveVelocity.Z = 0.f;
 	}
 
 	// Réduction de vitesse globale
@@ -1109,7 +1148,9 @@ void ASTR_RacerPawn::TeleportBackToTrack()
 		SafeForward = FVector::ForwardVector;
 	}
 
-	const FVector NewLocation = LastSafeLocation + FVector(0.f, 0.f, RecoveryHeightOffset);
+	FVector NewLocation = LastSafeLocation;
+
+	NewLocation.Z = LockedWorldZ;
 	const FRotator NewRotation = SafeForward.Rotation();
 
 	SetActorLocationAndRotation(
@@ -1119,6 +1160,9 @@ void ASTR_RacerPawn::TeleportBackToTrack()
 		nullptr,
 		ETeleportType::TeleportPhysics
 	);
+
+	MoveVelocity.Z = 0.f;
+	EnforceTrackHeight(true);
 
 	// Reset état drift / boost
 	bIsDrifting = false;
@@ -1181,14 +1225,9 @@ void ASTR_RacerPawn::UpdateWrongWayState(float DeltaTime)
 	const bool bWasWrongWay = bIsGoingWrongWay;
 	const bool bWasWarningActive = bWrongWayWarningActive;
 
-	if (!TrackSplineActor)
-	{
-		TrackSplineActor = Cast<ATrackSplineActor>(
-			UGameplayStatics::GetActorOfClass(GetWorld(), ATrackSplineActor::StaticClass())
-		);
-	}
+	ATrackSplineActor* ActiveTrack = ResolveTrackSplineActor();
 
-	if (!TrackSplineActor)
+	if (!ActiveTrack)
 	{
 		bIsGoingWrongWay = false;
 		bWrongWayWarningActive = false;
@@ -1215,7 +1254,7 @@ void ASTR_RacerPawn::UpdateWrongWayState(float DeltaTime)
 	}
 
 	const FVector TravelDirection = MoveVelocity.GetSafeNormal2D();
-	const FVector TrackDirection = TrackSplineActor->GetTrackForwardDirectionAtWorldLocation(GetActorLocation());
+	const FVector TrackDirection = ActiveTrack->GetTrackForwardDirectionAtWorldLocation(GetActorLocation());
 
 	const float Dot = FVector::DotProduct(TravelDirection, TrackDirection);
 
@@ -1567,3 +1606,45 @@ float ASTR_RacerPawn::GetPostDriftSteeringInput(float RawSteeringInput) const
 	return RawSteeringInput * Multiplier;
 }
 
+ATrackSplineActor* ASTR_RacerPawn::ResolveTrackSplineActor()
+{
+	if (TrackSplineActor)
+	{
+		return TrackSplineActor;
+	}
+
+	if (UWorld* World = GetWorld())
+	{
+		if (ARaceGameMode* GM = Cast<ARaceGameMode>(UGameplayStatics::GetGameMode(World)))
+		{
+			TrackSplineActor = GM->GetRaceTrackSplineActor();
+			if (TrackSplineActor)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("[TRACK] %s got track from GameMode: %s"),
+					*GetName(), *GetNameSafe(TrackSplineActor));
+				return TrackSplineActor;
+			}
+		}
+
+		TArray<AActor*> FoundTracks;
+		UGameplayStatics::GetAllActorsOfClass(World, ATrackSplineActor::StaticClass(), FoundTracks);
+
+		for (AActor* Actor : FoundTracks)
+		{
+			if (Actor && Actor->ActorHasTag(TEXT("MainRaceTrack")))
+			{
+				TrackSplineActor = Cast<ATrackSplineActor>(Actor);
+
+				UE_LOG(LogTemp, Warning, TEXT("[TRACK] %s got track from tag MainRaceTrack: %s"),
+					*GetName(), *GetNameSafe(TrackSplineActor));
+
+				return TrackSplineActor;
+			}
+		}
+
+		UE_LOG(LogTemp, Warning, TEXT("[TRACK] %s failed to resolve TrackSplineActor | Found=%d"),
+			*GetName(), FoundTracks.Num());
+	}
+
+	return nullptr;
+}

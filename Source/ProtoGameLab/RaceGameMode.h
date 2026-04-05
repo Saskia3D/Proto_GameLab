@@ -154,6 +154,12 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Race|UI")
 	int32 GetFinishCountdownRemainingSeconds() const;
 
+	UFUNCTION(BlueprintPure, Category = "Race")
+	ATrackSplineActor* GetRaceTrackSplineActor() const { return TrackSplineActor; }
+
+	UFUNCTION(BlueprintPure, Category = "Race")
+	ATrackManager* GetRaceTrackManager() const { return TrackManager; }
+
 	const FPlayerRaceProgress* GetPlayerProgress(AController* Controller) const; //Recupere toute la progression
 	TArray<FRaceLeaderboardEntry> BuildLeaderboardSnapshot() const;
 
