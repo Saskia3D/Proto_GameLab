@@ -18,53 +18,89 @@
 #include "GameFramework/PlayerController.h"
 #include "InputCoreTypes.h"
 #include "Engine/Engine.h"
+#include "Materials/MaterialInterface.h"
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraSystem.h"
 
 namespace
 {
-	UStaticMesh* ResolveVehicleMeshFromClass(UClass* VehicleClass)
+	const FVector DefaultSelectedVehicleLocation(0.f, 0.f, -40.f);
+	const FRotator DefaultSelectedVehicleRotation(0.f, -90.f, 90.f);
+	const FVector DefaultSelectedVehicleScale(1.f, 1.f, 1.f);
+
+	struct FRacerPawnSelectedVehicleData
 	{
+		UStaticMesh* Mesh = nullptr;
+		TArray<UMaterialInterface*> Materials;
+		FVector RelativeLocation = DefaultSelectedVehicleLocation;
+		FRotator RelativeRotation = DefaultSelectedVehicleRotation;
+		FVector RelativeScale = DefaultSelectedVehicleScale;
+
+		bool IsValid() const
+		{
+			return Mesh != nullptr;
+		}
+	};
+
+	FRacerPawnSelectedVehicleData ResolveSelectedVehicleDataFromClass(UClass* VehicleClass)
+	{
+		FRacerPawnSelectedVehicleData VehicleData;
+
 		if (!VehicleClass || !VehicleClass->IsChildOf(ASTR_RacerPawn::StaticClass()))
 		{
-			return nullptr;
+			return VehicleData;
 		}
 
 		const ASTR_RacerPawn* DefaultPawn = Cast<ASTR_RacerPawn>(VehicleClass->GetDefaultObject());
 		if (!DefaultPawn || !DefaultPawn->CarMesh)
 		{
-			return nullptr;
+			return VehicleData;
 		}
 
-		return DefaultPawn->CarMesh->GetStaticMesh();
+		VehicleData.Mesh = DefaultPawn->CarMesh->GetStaticMesh();
+		VehicleData.RelativeLocation = DefaultPawn->CarMesh->GetRelativeLocation();
+		VehicleData.RelativeRotation = DefaultPawn->CarMesh->GetRelativeRotation();
+		VehicleData.RelativeScale = DefaultPawn->CarMesh->GetRelativeScale3D();
+
+		const int32 NumMaterials = DefaultPawn->CarMesh->GetNumMaterials();
+		VehicleData.Materials.Reserve(NumMaterials);
+		for (int32 MaterialIndex = 0; MaterialIndex < NumMaterials; ++MaterialIndex)
+		{
+			VehicleData.Materials.Add(DefaultPawn->CarMesh->GetMaterial(MaterialIndex));
+		}
+
+		return VehicleData;
 	}
 
-	UStaticMesh* ResolveVehicleMeshFromPath(const FSoftObjectPath& VehiclePath)
+	FRacerPawnSelectedVehicleData ResolveSelectedVehicleDataFromPath(const FSoftObjectPath& VehiclePath)
 	{
+		FRacerPawnSelectedVehicleData VehicleData;
+
 		if (VehiclePath.IsNull())
 		{
-			return nullptr;
+			return VehicleData;
 		}
 
 		if (UObject* LoadedObject = VehiclePath.TryLoad())
 		{
 			if (UStaticMesh* StaticMesh = Cast<UStaticMesh>(LoadedObject))
 			{
-				return StaticMesh;
+				VehicleData.Mesh = StaticMesh;
+				return VehicleData;
 			}
 
 			if (UBlueprint* Blueprint = Cast<UBlueprint>(LoadedObject))
 			{
-				return ResolveVehicleMeshFromClass(Blueprint->GeneratedClass);
+				return ResolveSelectedVehicleDataFromClass(Blueprint->GeneratedClass);
 			}
 
 			if (UClass* LoadedClass = Cast<UClass>(LoadedObject))
 			{
-				return ResolveVehicleMeshFromClass(LoadedClass);
+				return ResolveSelectedVehicleDataFromClass(LoadedClass);
 			}
 		}
 
-		return nullptr;
+		return VehicleData;
 	}
 
 	UProjectileBuff* FindActiveProjectileBuff(UBuffComponent* BuffComponent)
@@ -853,9 +889,19 @@ void ASTR_RacerPawn::ApplySelectedVehicleMesh()
 		return;
 	}
 
-	if (UStaticMesh* SelectedMesh = ResolveVehicleMeshFromPath(SelectedMeshPath))
+	const FRacerPawnSelectedVehicleData SelectedVehicleData = ResolveSelectedVehicleDataFromPath(SelectedMeshPath);
+	if (SelectedVehicleData.IsValid())
 	{
-		CarMesh->SetStaticMesh(SelectedMesh);
+		CarMesh->EmptyOverrideMaterials();
+		CarMesh->SetStaticMesh(SelectedVehicleData.Mesh);
+		CarMesh->SetRelativeLocation(SelectedVehicleData.RelativeLocation);
+		CarMesh->SetRelativeRotation(SelectedVehicleData.RelativeRotation);
+		CarMesh->SetRelativeScale3D(SelectedVehicleData.RelativeScale);
+
+		for (int32 MaterialIndex = 0; MaterialIndex < SelectedVehicleData.Materials.Num(); ++MaterialIndex)
+		{
+			CarMesh->SetMaterial(MaterialIndex, SelectedVehicleData.Materials[MaterialIndex]);
+		}
 	}
 }
 
