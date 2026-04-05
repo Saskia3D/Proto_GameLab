@@ -145,6 +145,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Race|UI")
 	bool HasControllerFinishedRace(AController* Controller) const;
 
+	UFUNCTION(BlueprintPure, Category = "Race|UI")
+	bool IsFinishCountdownActive() const;
+
+	UFUNCTION(BlueprintPure, Category = "Race|UI")
+	float GetFinishCountdownRemaining() const;
+
+	UFUNCTION(BlueprintPure, Category = "Race|UI")
+	int32 GetFinishCountdownRemainingSeconds() const;
+
 	const FPlayerRaceProgress* GetPlayerProgress(AController* Controller) const; //Recupere toute la progression
 	TArray<FRaceLeaderboardEntry> BuildLeaderboardSnapshot() const;
 
