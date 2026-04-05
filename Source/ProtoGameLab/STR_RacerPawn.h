@@ -77,10 +77,10 @@ public:
 	UInputAction* ItemAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float MaxSpeed = 1800.0f;
+	float MaxSpeed = 1600.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float AccelerationRate = 700.0f;
+	float AccelerationRate = 725.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float BrakingDeceleration = 800.0f;
@@ -95,7 +95,7 @@ public:
 	float MinTurnRateAtMaxSpeed = 130.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Steering")
-	float SteeringInterpSpeed = 2.75f;
+	float SteeringInterpSpeed = 5.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Steering")
 	float MinSpeedToTurn = 40.f;
@@ -133,6 +133,39 @@ public:
 	float HitCooldown = 0.35f;
 
 	float LastHitTime = -100.f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|DriftExit")
+	bool bPostDriftRecoveryActive = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|DriftExit")
+	float PostDriftRecoveryTimer = 0.f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|DriftExit")
+	int32 LastDriftDirection = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftExit")
+	float PostDriftRecoveryDuration = 0.25f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftExit")
+	float PostDriftSteerSameDirectionMultiplier = 0.30f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftExit")
+	float PostDriftSteerOppositeDirectionMultiplier = 1.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftExit")
+	float PostDriftRotationBlendSpeed = 9.f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|DriftBoost")
+	float CurrentBoostExtraSpeed = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
+	float BoostDecaySpeed = 1200.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
+	float DriftDirectionChangeCooldown = 0.12f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|Drift")
+	float DriftDirectionChangeCooldownTimer = 0.f;
 
 	UFUNCTION(BlueprintCallable, Category = "Collision")
 	void SetIgnoreObstacleHits(bool bShouldIgnore);
@@ -288,13 +321,13 @@ protected:
 	float NormalGrip = 17.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
-	float DriftGrip = 14.f;
+	float DriftGrip = 50.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
 	float DriftSpeedLossPerSecond = 40.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
-	float DriftAccelMultiplier = 0.6f;
+	float DriftAccelMultiplier = 1.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
 	float DriftDirectionSwitchThreshold = 0.7f;
@@ -309,22 +342,22 @@ protected:
 	float CurrentDriftAngle = 0.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
-	float MaxDriftAngle = 25.f;
+	float MaxDriftAngle = 15.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
 	float DriftAngleInterpSpeed = 10.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
-	float DriftTurnRateMultiplier = 9.5f;
+	float DriftTurnRateMultiplier = 1.1f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
-	float DriftBaseAutoSteer = 0.25f;
+	float DriftBaseAutoSteer = 0.5f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
-	float DriftSteerSameDirectionMultiplier = 0.20f;
+	float DriftSteerSameDirectionMultiplier = 1.5f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
-	float DriftSteerOppositeDirectionMultiplier = 0.05f;
+	float DriftSteerOppositeDirectionMultiplier = 1.f;
 
 	int32 DriftDirection = 0;
 
@@ -365,7 +398,7 @@ protected:
 	float MinTravelYawRateDeg = 4.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
-	float DriftChargeRate = 60.f;
+	float DriftChargeRate = 150.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
 	float DriftChargeDecayRate = 12.f;
@@ -502,5 +535,8 @@ protected:
 	void StartDriftBoost(float BonusSpeed, float Duration);
 
 	void UpdateWrongWayState(float DeltaTime);
+
+	void BeginPostDriftRecovery();
+	float GetPostDriftSteeringInput(float RawSteeringInput) const;
 };
 
