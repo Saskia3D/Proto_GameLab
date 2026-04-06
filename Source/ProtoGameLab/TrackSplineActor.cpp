@@ -20,7 +20,7 @@ ATrackSplineActor::ATrackSplineActor()
 	Spline->SetClosedLoop(true);
 }
 
-#if WITH_EDITOR
+//#if WITH_EDITOR
 void ATrackSplineActor::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
@@ -29,7 +29,7 @@ void ATrackSplineActor::OnConstruction(const FTransform& Transform)
 	BuildRoad();
 	BuildFinishLine();
 }
-#endif
+//#endif
 
 void ATrackSplineActor::ClearGenerated()
 {
@@ -51,7 +51,7 @@ void ATrackSplineActor::ClearGenerated()
 
 void ATrackSplineActor::BuildRoad()
 {
-	if (!Spline || !RoadMesh || !SpriteMesh) return;
+	if (!Spline || !RoadMesh) return;
 
 	float SplineLength = Spline->GetSplineLength();
 	float CurrentDistance = 0.f;
@@ -83,25 +83,28 @@ void ATrackSplineActor::BuildRoad()
 		RoadSegments.Add(RoadSeg);
 
 		// Sprite top
-		USplineMeshComponent* SpriteSeg = NewObject<USplineMeshComponent>(this);
-		SpriteSeg->SetMobility(EComponentMobility::Movable);
-		SpriteSeg->TranslucencySortPriority = 1;
-		SpriteSeg->RegisterComponentWithWorld(GetWorld());
-		SpriteSeg->AttachToComponent(Spline, FAttachmentTransformRules::KeepRelativeTransform);
-		SpriteSeg->SetStaticMesh(SpriteMesh);
-		SpriteSeg->SetRelativeRotation(FRotator(0.f, 0.f, 0.f));
-		if (SpriteMaterial) SpriteSeg->SetMaterial(0, SpriteMaterial);
+		if (SpriteMesh)
+		{
+			USplineMeshComponent* SpriteSeg = NewObject<USplineMeshComponent>(this);
+			SpriteSeg->SetMobility(EComponentMobility::Movable);
+			SpriteSeg->TranslucencySortPriority = 1;
+			SpriteSeg->RegisterComponentWithWorld(GetWorld());
+			SpriteSeg->AttachToComponent(Spline, FAttachmentTransformRules::KeepRelativeTransform);
+			SpriteSeg->SetStaticMesh(SpriteMesh);
+			SpriteSeg->SetRelativeRotation(FRotator(0.f, 0.f, 0.f));
+			if (SpriteMaterial) SpriteSeg->SetMaterial(0, SpriteMaterial);
 
-		FVector SpriteStart = StartPos + FVector(0, 0, SpriteHeightOffset);
-		FVector SpriteEnd = EndPos + FVector(0, 0, SpriteHeightOffset);
-		float SpriteWidth = RoadWidthScale * 0.4f;
+			FVector SpriteStart = StartPos + FVector(0, 0, SpriteHeightOffset);
+			FVector SpriteEnd = EndPos + FVector(0, 0, SpriteHeightOffset);
+			float SpriteWidth = RoadWidthScale * 0.4f;
 
-		SpriteSeg->SetStartAndEnd(SpriteStart, StartTan, SpriteEnd, EndTan, true);
-		SpriteSeg->SetStartScale(FVector2D(SpriteWidth, 0.05f));
-		SpriteSeg->SetEndScale(FVector2D(SpriteWidth, 0.05f));
-		SpriteSeg->SetForwardAxis(ESplineMeshAxis::Y);
-		SpriteSeg->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		SpriteSegments.Add(SpriteSeg);
+			SpriteSeg->SetStartAndEnd(SpriteStart, StartTan, SpriteEnd, EndTan, true);
+			SpriteSeg->SetStartScale(FVector2D(SpriteWidth, 0.05f));
+			SpriteSeg->SetEndScale(FVector2D(SpriteWidth, 0.05f));
+			SpriteSeg->SetForwardAxis(ESplineMeshAxis::Y);
+			SpriteSeg->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			SpriteSegments.Add(SpriteSeg);
+		}
 
 		CurrentDistance = NextDistance;
 		if (TileLength <= 0.f) break;
@@ -123,6 +126,10 @@ void ATrackSplineActor::BeginPlay()
 {
 	Super::BeginPlay();
 
+	ClearFinishLine();
+	ClearGenerated();
+	BuildRoad();
+	BuildFinishLine();
 }
 
 void ATrackSplineActor::Tick(float DeltaTime)
