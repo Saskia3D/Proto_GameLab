@@ -296,6 +296,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|WrongWay")
 	float WrongWayDotThreshold = -0.35f;
 
+	UFUNCTION(BlueprintPure, Category = "Player")
+	int32 GetLocalPlayerIndex() const;
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Track|Audio")
+	void OnOffTrackStateChanged(bool bNowOffTrack, int32 PlayerIndex);
+
 protected:
 	float CurrentSpeed = 0.f;
 	float TargetSteeringInput = 0.f;

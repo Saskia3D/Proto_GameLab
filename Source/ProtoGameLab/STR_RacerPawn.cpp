@@ -681,6 +681,8 @@ void ASTR_RacerPawn::UpdateOffTrackState(float DeltaTime)
 		UE_LOG(LogTemp, Warning, TEXT("[OFF TRACK] %s -> %s"),
 			*GetName(),
 			bIsOffTrack ? TEXT("LEFT TRACK") : TEXT("BACK ON TRACK"));
+
+		OnOffTrackStateChanged(bIsOffTrack, GetLocalPlayerIndex());
 	}
 
 	if (bOffTrackPenaltyActive != bWasPenaltyActive)
@@ -1685,4 +1687,21 @@ ATrackSplineActor* ASTR_RacerPawn::ResolveTrackSplineActor()
 	}
 
 	return nullptr;
+}
+
+int32 ASTR_RacerPawn::GetLocalPlayerIndex() const
+{
+	APlayerController* PC = Cast<APlayerController>(GetController());
+	if (!PC)
+	{
+		return -1;
+	}
+
+	ULocalPlayer* LP = PC->GetLocalPlayer();
+	if (!LP)
+	{
+		return -1;
+	}
+
+	return LP->GetControllerId();
 }
