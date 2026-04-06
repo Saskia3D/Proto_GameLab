@@ -20,9 +20,17 @@ class PROTOGAMELAB_API ATrackSplineActor : public AActor
 public:
 	ATrackSplineActor();
 
-//#if WITH_EDITOR
+	//#if WITH_EDITOR
 	virtual void OnConstruction(const FTransform& Transform) override;
-//#endif
+	//#endif
+
+#if WITH_EDITORONLY_DATA
+	UPROPERTY(EditAnywhere, Category = "Track|Editor")
+	bool bAutoRebuildInEditor = false;
+#endif
+
+	UFUNCTION(CallInEditor, Category = "Track|Editor")
+	void RebuildTrack();
 
 	// --- EXISTING ROAD SETTINGS ---
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track")
@@ -57,7 +65,7 @@ public:
 	float SpriteHeightOffset = 2.0f; // Lifts the sprite slightly above the road to prevent flickering
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|Sprite")
-	float TileLength = 400.0f; // The physical length of one road tile in Unreal Units
+	float TileLength = 300.0f; // The physical length of one road tile in Unreal Units
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;

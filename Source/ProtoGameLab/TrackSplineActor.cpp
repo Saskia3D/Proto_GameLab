@@ -24,10 +24,15 @@ ATrackSplineActor::ATrackSplineActor()
 void ATrackSplineActor::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
-	ClearFinishLine();
-	ClearGenerated();
-	BuildRoad();
-	BuildFinishLine();
+
+#if WITH_EDITOR
+	if (!bAutoRebuildInEditor)
+	{
+		return;
+	}
+#endif
+
+	RebuildTrack();
 }
 //#endif
 
@@ -68,7 +73,7 @@ void ATrackSplineActor::BuildRoad()
 
 		// Road base
 		USplineMeshComponent* RoadSeg = NewObject<USplineMeshComponent>(this);
-		RoadSeg->SetFlags(RF_Transactional);
+		//RoadSeg->SetFlags(RF_Transactional);
 		RoadSeg->SetMobility(EComponentMobility::Movable);
 		RoadSeg->RegisterComponentWithWorld(GetWorld());
 		RoadSeg->AttachToComponent(Spline, FAttachmentTransformRules::KeepRelativeTransform);
@@ -294,4 +299,12 @@ void ATrackSplineActor::BuildFinishLine()
 			Arrow->SetWorldRotation(SpawnRotation);
 		}
 	}
+}
+
+void ATrackSplineActor::RebuildTrack()
+{
+	ClearFinishLine();
+	ClearGenerated();
+	BuildRoad();
+	BuildFinishLine();
 }
