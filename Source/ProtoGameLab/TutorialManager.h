@@ -45,6 +45,21 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Tutorial|UI")
 	int32 GetExpectedPlayerCount() const;
 
+	UFUNCTION(BlueprintPure, Category = "Tutorial|UI")
+	bool ShouldShowSkipPrompt() const
+	{
+		return bTutorialActive && !bTutorialFinished;
+	}
+
+	UFUNCTION(BlueprintPure, Category = "Tutorial|UI")
+	bool IsRaceStartPending() const
+	{
+		return bRaceStartPending;
+	}
+
+	UFUNCTION(BlueprintPure, Category = "Tutorial|UI")
+	FText GetSkipStatusText(AController* Controller) const;
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -84,6 +99,12 @@ private:
 
 	UPROPERTY()
 	TArray<TObjectPtr<UUserWidget>> ActiveTutorialWidgets;
+
+	UPROPERTY()
+	TSet<TObjectPtr<AController>> SkipHeldControllers;
+
+	void HandleSkipInputs();
+	bool IsSkipInputDown(APlayerController* PC) const;
 
 	void CreateTutorialWidgets();
 	void RemoveTutorialWidgets();

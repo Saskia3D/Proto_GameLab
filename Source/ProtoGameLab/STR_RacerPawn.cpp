@@ -325,7 +325,11 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 		SteeringInterpSpeed
 	);
 
-	const bool bHasSteerForDrift = FMath::Abs(CurrentSteeringInput) >= DriftSteerThreshold;
+	const float DriftIntentInput = !FMath::IsNearlyZero(TargetSteeringInput, 0.01f)
+		? TargetSteeringInput
+		: CurrentSteeringInput;
+
+	const bool bHasSteerForDrift = FMath::Abs(DriftIntentInput) >= DriftSteerThreshold;
 	const bool bFastEnoughToStartDrift = CurrentSpeed >= MinSpeedToStartDrift;
 	const bool bFastEnoughToKeepDrift = CurrentSpeed >= MinDriftSpeed;
 
@@ -341,6 +345,7 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 		DriftDirection = 0;
 		DriftChargeDirection = 0;
 		CurrentDriftAngle = 0.f;
+		DriftDirectionChangeCooldownTimer = 0.f;
 	}
 
 	if (bAllowDrift && !bIsDrifting)
@@ -348,9 +353,10 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 		if (bWantsDrift && bFastEnoughToStartDrift && bHasSteerForDrift)
 		{
 			bIsDrifting = true;
-			DriftDirection = (CurrentSteeringInput > 0.f) ? 1 : -1;
+			DriftDirection = (DriftIntentInput > 0.f) ? 1 : -1;
 			DriftChargeDirection = DriftDirection;
 			bDriftBoostStillValid = true;
+			DriftDirectionChangeCooldownTimer = 0.f;
 		}
 	}
 	else
@@ -360,14 +366,15 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 			bIsDrifting = false;
 			DriftDirection = 0;
 			DriftChargeDirection = 0;
+			DriftDirectionChangeCooldownTimer = 0.f;
 		}
 	}
 
 	if (bIsDrifting)
 	{
 		const int32 NewSteerDirection =
-			(CurrentSteeringInput > DriftDirectionSwitchThreshold) ? 1 :
-			(CurrentSteeringInput < -DriftDirectionSwitchThreshold) ? -1 : 0;
+			(DriftIntentInput > DriftDirectionSwitchThreshold) ? 1 :
+			(DriftIntentInput < -DriftDirectionSwitchThreshold) ? -1 : 0;
 
 		if (NewSteerDirection != 0 &&
 			DriftChargeDirection != 0 &&
