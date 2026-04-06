@@ -39,7 +39,7 @@ public:
 	float MinimapSize = 190.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap|Layout")
-	EMinimapScreenCorner ScreenCorner = EMinimapScreenCorner::SeamCenter;
+	EMinimapScreenCorner ScreenCorner = EMinimapScreenCorner::BottomCenter;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap|Layout")
 	float HorizontalPadding = 28.f;
