@@ -162,7 +162,7 @@ FVector2D URaceMinimapWidget::ResolveMinimapOrigin(const FVector2D& ViewSize, co
 		break;
 	case EMinimapScreenCorner::SeamCenter:
 		// Center of minimap sits exactly on the vertical split line (right edge of P1's viewport)
-		Origin = FVector2D(ViewSize.X - (BoxSize.X * 0.5f), ViewSize.Y - BoxSize.Y - VerticalPadding);
+		Origin = FVector2D((ViewSize.X - BoxSize.X) * 0.5f, (ViewSize.Y - BoxSize.Y) * 0.5f );
 		break;
 	case EMinimapScreenCorner::TopLeft:
 	default:
@@ -172,149 +172,6 @@ FVector2D URaceMinimapWidget::ResolveMinimapOrigin(const FVector2D& ViewSize, co
 	return Origin;
 }
 
-/*int32 URaceMinimapWidget::NativePaint(
-	const FPaintArgs& Args,
-	const FGeometry& AllottedGeometry,
-	const FSlateRect& MyCullingRect,
-	FSlateWindowElementList& OutDrawElements,
-	int32 LayerId,
-	const FWidgetStyle& InWidgetStyle,
-	bool bParentEnabled
-) const
-{
-	const FVector2D ViewSize = AllottedGeometry.GetLocalSize();
-	if (ViewSize.X <= KINDA_SMALL_NUMBER || ViewSize.Y <= KINDA_SMALL_NUMBER)
-	{
-		return Super::NativePaint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
-	}
-	// --- REPLACE THIS SECTION IN NATIVEPAINT ---
-	const FVector2D LocalSize = AllottedGeometry.GetLocalSize();
-	if (LocalSize.X <= KINDA_SMALL_NUMBER || LocalSize.Y <= KINDA_SMALL_NUMBER)
-	{
-		return Super::NativePaint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
-	}
-
-	// 1. Force use of the FULL screen resolution instead of just this player's split
-	FVector2D FullViewportSize = LocalSize;
-	if (GEngine && GEngine->GameViewport)
-	{
-		GEngine->GameViewport->GetViewportSize(FullViewportSize);
-	}
-
-	// 2. Find where THIS player's splitscreen starts on the screen
-	FVector2D PlayerViewportOffset(0.f, 0.f);
-	if (const ULocalPlayer* LP = GetOwningLocalPlayer())
-	{
-		PlayerViewportOffset.X = LP->Origin.X * FullViewportSize.X;
-		PlayerViewportOffset.Y = LP->Origin.Y * FullViewportSize.Y;
-	}
-
-	const FVector2D BoxSize(MinimapSize, MinimapSize);
-
-	// 3. Resolve the center-bottom of the WHOLE monitor, then subtract the local offset!
-	const FVector2D BoxOrigin = ResolveMinimapOrigin(FullViewportSize, BoxSize) - PlayerViewportOffset;
-
-	// (Leave the rest of NativePaint below this exactly as it was)
-	const FVector2D BoxSize(MinimapSize, MinimapSize);
-	const FVector2D BoxOrigin = ResolveMinimapOrigin(ViewSize, BoxSize);
-
-	FSlateDrawElement::MakeBox(
-		OutDrawElements,
-		LayerId,
-		AllottedGeometry.ToPaintGeometry(FVector2f(BoxSize), FSlateLayoutTransform(FVector2f(BoxOrigin))),
-		WhiteBrush,
-		ESlateDrawEffect::None,
-		BackgroundColor
-	);
-
-	FSlateDrawElement::MakeBox(
-		OutDrawElements,
-		LayerId + 1,
-		AllottedGeometry.ToPaintGeometry(FVector2f(BoxSize), FSlateLayoutTransform(FVector2f(BoxOrigin))),
-		WhiteBrush,
-		ESlateDrawEffect::None,
-		FLinearColor(FrameColor.R, FrameColor.G, FrameColor.B, 0.18f)
-	);
-
-	if (bHasValidTrackCache && CachedSplineSamples.Num() > 1)
-	{
-		TArray<FVector2D> TrackPoints;
-		TrackPoints.Reserve(CachedSplineSamples.Num());
-
-		for (const FVector& SampleLocation : CachedSplineSamples)
-		{
-			TrackPoints.Add(ProjectWorldToMinimap(SampleLocation, BoxOrigin, BoxSize));
-		}
-
-		FSlateDrawElement::MakeLines(
-			OutDrawElements,
-			LayerId + 2,
-			AllottedGeometry.ToPaintGeometry(),
-			TrackPoints,
-			ESlateDrawEffect::None,
-			TrackColor,
-			true,
-			TrackThickness
-		);
-	}
-
-	TArray<AActor*> RacerActors;
-	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ASTR_RacerPawn::StaticClass(), RacerActors);
-
-	for (AActor* RacerActor : RacerActors)
-	{
-		const ASTR_RacerPawn* RacerPawn = Cast<ASTR_RacerPawn>(RacerActor);
-		if (!RacerPawn)
-		{
-			continue;
-		}
-
-		const AController* Controller = RacerPawn->GetController();
-		const bool bIsPlayer = Controller && Controller->IsPlayerController();
-		const bool bIsLocalPlayer = bIsPlayer && Controller->IsLocalController();
-
-		const FLinearColor MarkerColor = bIsLocalPlayer
-			? LocalPlayerColor
-			: (bIsPlayer ? RemotePlayerColor : AIColor);
-
-		const FVector2D MarkerCenter = ProjectWorldToMinimap(RacerPawn->GetActorLocation(), BoxOrigin, BoxSize);
-		const FVector2D MarkerTopLeft = MarkerCenter - FVector2D(PlayerMarkerSize * 0.5f, PlayerMarkerSize * 0.5f);
-
-		FSlateDrawElement::MakeBox(
-			OutDrawElements,
-			LayerId + 3,
-			AllottedGeometry.ToPaintGeometry(FVector2f(PlayerMarkerSize, PlayerMarkerSize), FSlateLayoutTransform(FVector2f(MarkerTopLeft))),
-			WhiteBrush,
-			ESlateDrawEffect::None,
-			MarkerColor
-		);
-
-		const FVector DirectionWorld = RacerPawn->GetActorLocation() + (RacerPawn->GetActorForwardVector() * 250.f);
-		FVector2D DirectionTip = ProjectWorldToMinimap(DirectionWorld, BoxOrigin, BoxSize);
-		const FVector2D DirectionVector = DirectionTip - MarkerCenter;
-		if (!DirectionVector.IsNearlyZero())
-		{
-			DirectionTip = MarkerCenter + DirectionVector.GetSafeNormal() * DirectionLineLength;
-		}
-
-		TArray<FVector2D> DirectionLine;
-		DirectionLine.Add(MarkerCenter);
-		DirectionLine.Add(DirectionTip);
-
-		FSlateDrawElement::MakeLines(
-			OutDrawElements,
-			LayerId + 4,
-			AllottedGeometry.ToPaintGeometry(),
-			DirectionLine,
-			ESlateDrawEffect::None,
-			FLinearColor(MarkerColor.R, MarkerColor.G, MarkerColor.B, 0.85f),
-			true,
-			2.f
-		);
-	}
-
-	return Super::NativePaint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, LayerId + 5, InWidgetStyle, bParentEnabled);
-}*/
 int32 URaceMinimapWidget::NativePaint(
 	const FPaintArgs& Args,
 	const FGeometry& AllottedGeometry,
@@ -331,24 +188,8 @@ int32 URaceMinimapWidget::NativePaint(
 		return Super::NativePaint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
 	}
 
-	// 1. Get the FULL screen resolution
-	FVector2D FullViewportSize = LocalSize;
-	if (GEngine && GEngine->GameViewport)
-	{
-		GEngine->GameViewport->GetViewportSize(FullViewportSize);
-	}
-
-	// 2. Get this player's offset
-	FVector2D PlayerViewportOffset(0.f, 0.f);
-	if (const ULocalPlayer* LP = GetOwningLocalPlayer())
-	{
-		PlayerViewportOffset.X = LP->Origin.X * FullViewportSize.X;
-		PlayerViewportOffset.Y = LP->Origin.Y * FullViewportSize.Y;
-	}
-
-	// 3. Define the Minimap geometry
 	const FVector2D BoxSize(MinimapSize, MinimapSize);
-	const FVector2D BoxOrigin = ResolveMinimapOrigin(FullViewportSize, BoxSize) - PlayerViewportOffset;
+	const FVector2D BoxOrigin = ResolveMinimapOrigin(LocalSize, BoxSize);
 
 	// 4. Get the WhiteBrush (Fixes your compiler error)
 	const FSlateBrush* WhiteBrush = FCoreStyle::Get().GetBrush("WhiteBrush");

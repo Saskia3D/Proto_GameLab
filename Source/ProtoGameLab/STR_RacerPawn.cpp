@@ -876,7 +876,7 @@ void ASTR_RacerPawn::EnsureMinimapWidget()
 				*GetName(), *GetNameSafe(ActiveTrack));
 			MinimapWidget->SetTrackSplineActor(ActiveTrack);
 		}
-
+		//Ajout de la minimap au viewport avec un ZOrder de 40 pour s'assurer qu'elle est au dessus de la plupart des autres éléments UI
 		MinimapWidget->AddToViewport(40);
 	}
 }
