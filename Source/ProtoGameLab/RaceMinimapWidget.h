@@ -35,6 +35,18 @@ public:
 		bool bParentEnabled
 	) const override;
 
+	// ---  EVENTS FOR BLUEPRINT (Sounds/Animations) ---
+
+	/** Call this in C++ to trigger a sound or animation in the WBP */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Minimap|Events")
+	void OnMinimapShow();
+
+	/** Call this in C++ when the race starts to trigger UI effects */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Minimap|Events")
+	void OnMinimapHide();
+
+	// --- PROPERTIES ---
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap")
 	float MinimapSize = 190.f;
 
@@ -68,22 +80,23 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap")
 	float DirectionLineLength = 16.f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap")
+	// We use BlueprintReadWrite so your "Pixelation Material" logic can access these colors
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap|Colors")
 	FLinearColor BackgroundColor = FLinearColor(0.02f, 0.03f, 0.05f, 0.80f);
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap|Colors")
 	FLinearColor FrameColor = FLinearColor(0.96f, 0.74f, 0.28f, 0.95f);
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap|Colors")
 	FLinearColor TrackColor = FLinearColor(0.73f, 0.82f, 0.92f, 0.95f);
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap|Colors")
 	FLinearColor LocalPlayerColor = FLinearColor(1.0f, 0.85f, 0.30f, 1.0f);
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap|Colors")
 	FLinearColor RemotePlayerColor = FLinearColor(0.90f, 0.94f, 1.0f, 1.0f);
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap|Colors")
 	FLinearColor AIColor = FLinearColor(0.42f, 0.90f, 0.82f, 1.0f);
 
 	UFUNCTION(BlueprintCallable, Category = "Minimap")

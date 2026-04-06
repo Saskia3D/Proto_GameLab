@@ -707,6 +707,7 @@ void UVehicleSelectionWidget::TryAdvanceToTargetLevel()
 	bTransitionToTargetLevelPending = true;
 	TransitionDelayRemaining = FMath::Max(0.f, TransitionDelaySeconds);
 	RefreshBottomInstruction();
+	OnAllPlayersReady();
 
 	if (TransitionDelayRemaining <= 0.f)
 	{
@@ -817,6 +818,7 @@ void UVehicleSelectionWidget::HandleSelectionChange(const int32 PlayerIndex, con
 	{
 		RefreshBottomInstruction();
 	}
+	OnSelectionChanged(PlayerIndex, PlayerState.SelectedIndex);
 }
 
 void UVehicleSelectionWidget::HandleConfirm(const int32 PlayerIndex)
@@ -832,6 +834,9 @@ void UVehicleSelectionWidget::HandleConfirm(const int32 PlayerIndex)
 	{
 		UpdatePlayerCard(PlayerIndex);
 		TryAdvanceToTargetLevel();
+
+		//blueprint event
+		OnPlayerConfirmed(PlayerIndex);
 	}
 	else
 	{
@@ -839,6 +844,9 @@ void UVehicleSelectionWidget::HandleConfirm(const int32 PlayerIndex)
 		TransitionDelayRemaining = 0.f;
 		UpdatePlayerCard(PlayerIndex);
 		RefreshBottomInstruction();
+
+		//blueprint event
+		OnPlayerUnconfirmed(PlayerIndex);
 	}
 }
 

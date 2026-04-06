@@ -93,6 +93,22 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Navigation")
 	void SetTargetLevelName(FName InTargetLevelName);
 
+	/** Triggered when any player moves the selection left/right */
+	UFUNCTION(BlueprintImplementableEvent, Category = "VehicleSelection|Events")
+	void OnSelectionChanged(int32 PlayerIndex, int32 NewIndex);
+
+	/** Triggered when a player presses the Confirm button */
+	UFUNCTION(BlueprintImplementableEvent, Category = "VehicleSelection|Events")
+	void OnPlayerConfirmed(int32 PlayerIndex);
+
+	/** Triggered when a player cancels their confirmation */
+	UFUNCTION(BlueprintImplementableEvent, Category = "VehicleSelection|Events")
+	void OnPlayerUnconfirmed(int32 PlayerIndex);
+
+	/** Triggered when BOTH players are ready and the transition starts */
+	UFUNCTION(BlueprintImplementableEvent, Category = "VehicleSelection|Events")
+	void OnAllPlayersReady();
+
 protected:
 	virtual TSharedRef<SWidget> RebuildWidget() override;
 	virtual void NativeConstruct() override;
