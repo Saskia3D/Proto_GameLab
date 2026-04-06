@@ -350,7 +350,7 @@ protected:
 	float DriftAngleInterpSpeed = 10.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
-	float DriftTurnRateMultiplier = 1.1f;
+	float DriftTurnRateMultiplier = 1.3f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
 	float DriftBaseAutoSteer = 0.5f;
