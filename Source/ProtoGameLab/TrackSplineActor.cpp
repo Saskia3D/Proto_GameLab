@@ -4,6 +4,10 @@
 #include "Engine/StaticMesh.h"
 #include "FinishLine.h"
 #include "Components/ArrowComponent.h"
+#include "Kismet/GameplayStatics.h"
+ 
+
+
 
 ATrackSplineActor::ATrackSplineActor()
 {
@@ -20,23 +24,28 @@ ATrackSplineActor::ATrackSplineActor()
 void ATrackSplineActor::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
+	ClearFinishLine();
 	ClearGenerated();
 	BuildRoad();
+	BuildFinishLine();
 }
 #endif
 
 void ATrackSplineActor::ClearGenerated()
 {
-	for (USplineMeshComponent* Seg : RoadSegments)
-	{
-		if (Seg) Seg->DestroyComponent();
-	}
-	RoadSegments.Reset();
+	TArray<USceneComponent*> AttachedComponents;
+	Spline->GetChildrenComponents(true, AttachedComponents);
 
-	for (USplineMeshComponent* Seg : SpriteSegments)
+	for (USceneComponent* Child : AttachedComponents)
 	{
-		if (Seg) Seg->DestroyComponent();
+		// Only destroy it if it's a Spline Mesh we created
+		if (USplineMeshComponent* MeshChild = Cast<USplineMeshComponent>(Child))
+		{
+			MeshChild->DestroyComponent();
+		}
 	}
+
+	RoadSegments.Reset();
 	SpriteSegments.Reset();
 }
 
@@ -114,10 +123,6 @@ void ATrackSplineActor::BeginPlay()
 {
 	Super::BeginPlay();
 
-	ClearGenerated();
-	ClearFinishLine();
-	BuildRoad();
-	BuildFinishLine();
 }
 
 void ATrackSplineActor::Tick(float DeltaTime)
@@ -220,6 +225,20 @@ void ATrackSplineActor::ClearFinishLine()
 	{
 		SpawnedFinishLine->Destroy();
 		SpawnedFinishLine = nullptr;
+	}
+	if (GetWorld())
+	{
+		TArray<AActor*> FoundActors;
+		UGameplayStatics::GetAllActorsOfClass(GetWorld(), AFinishLine::StaticClass(), FoundActors);
+
+		for (AActor* Actor : FoundActors)
+		{
+			// Only destroy if THIS track spawned it
+			if (Actor && Actor->GetOwner() == this)
+			{
+				Actor->Destroy();
+			}
+		}
 	}
 }
 void ATrackSplineActor::BuildFinishLine()
