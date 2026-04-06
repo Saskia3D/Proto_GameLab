@@ -166,6 +166,9 @@ public:
 		return RaceState != ERaceState::Waiting;
 	}
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "Race|Audio")
+	void OnLapCompletedEvent(AController* Controller, APawn* Pawn, int32 PlayerIndex, int32 LapNumber);
+
 	const FPlayerRaceProgress* GetPlayerProgress(AController* Controller) const; //Recupere toute la progression
 	TArray<FRaceLeaderboardEntry> BuildLeaderboardSnapshot() const;
 

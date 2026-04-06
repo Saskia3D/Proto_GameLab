@@ -733,6 +733,26 @@ void ARaceGameMode::NotifyLapCompleted(AController* Controller, int32 NewLapNumb
 	}
 
 	UpdatePositions();
+
+	APawn* Pawn = Controller ? Controller->GetPawn() : nullptr;
+
+	int32 PlayerIndex = -1;
+	if (APlayerController* PC = Cast<APlayerController>(Controller))
+	{
+		if (GetWorld())
+		{
+			for (int32 LocalIndex = 0; LocalIndex < 8; ++LocalIndex)
+			{
+				if (UGameplayStatics::GetPlayerController(GetWorld(), LocalIndex) == PC)
+				{
+					PlayerIndex = LocalIndex;
+					break;
+				}
+			}
+		}
+	}
+
+	OnLapCompletedEvent(Controller, Pawn, PlayerIndex, NewLapNumber);
 }
 
 const FPlayerRaceProgress* ARaceGameMode::GetPlayerProgress(AController* Controller) const
