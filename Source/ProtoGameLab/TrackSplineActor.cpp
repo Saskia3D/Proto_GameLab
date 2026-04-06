@@ -17,13 +17,18 @@ ATrackSplineActor::ATrackSplineActor()
 	SetRootComponent(Spline);
 
 	Spline->SetMobility(EComponentMobility::Movable);
-	Spline->SetClosedLoop(true);
+	Spline->SetClosedLoop(bClosedLoop);
 }
 
 //#if WITH_EDITOR
 void ATrackSplineActor::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
+
+	if (Spline)
+	{
+		Spline->SetClosedLoop(bClosedLoop);
+	}
 
 #if WITH_EDITOR
 	if (!bAutoRebuildInEditor)
