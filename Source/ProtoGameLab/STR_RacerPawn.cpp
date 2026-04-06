@@ -699,7 +699,8 @@ void ASTR_RacerPawn::UpdateSafeRecoveryPoint()
 		return;
 	}
 
-	const float DistanceToCenter = ActiveTrack->GetDistanceFromTrackCenter2D(GetActorLocation());
+	const FVector ActorLocation = GetActorLocation();
+	const float DistanceToCenter = ActiveTrack->GetDistanceFromTrackCenter2D(ActorLocation);
 
 	const bool bComfortablyOnTrack = DistanceToCenter <= (TrackHalfWidth * SafeRecoveryTrackRatio);
 
@@ -708,12 +709,15 @@ void ASTR_RacerPawn::UpdateSafeRecoveryPoint()
 		return;
 	}
 
-	bHasSafeRecoveryPoint = true;
-	LastSafeLocation = GetActorLocation();
+	FVector SafeLocation = ActiveTrack->GetClosestWorldLocationOnTrack(ActorLocation);
+	SafeLocation.Z = LockedWorldZ;
 
-	LastSafeLocation.Z = LockedWorldZ;
+	FVector SafeForward = ActiveTrack->GetTrackForwardDirectionAtWorldLocation(SafeLocation);
 
-	FVector SafeForward = MoveVelocity.GetSafeNormal2D();
+	if (SafeForward.IsNearlyZero())
+	{
+		SafeForward = LastSafeForward.GetSafeNormal2D();
+	}
 	if (SafeForward.IsNearlyZero())
 	{
 		SafeForward = GetActorForwardVector().GetSafeNormal2D();
@@ -723,8 +727,10 @@ void ASTR_RacerPawn::UpdateSafeRecoveryPoint()
 		SafeForward = FVector::ForwardVector;
 	}
 
+	bHasSafeRecoveryPoint = true;
+	LastSafeLocation = SafeLocation;
 	LastSafeForward = SafeForward;
-	LastSafeSpeed = CurrentSpeed;
+	LastSafeSpeed = FMath::Max(CurrentSpeed, 0.f);
 }
 
 void ASTR_RacerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -1131,26 +1137,45 @@ void ASTR_RacerPawn::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 
 void ASTR_RacerPawn::TeleportBackToTrack()
 {
-	if (!bHasSafeRecoveryPoint)
+	ATrackSplineActor* ActiveTrack = ResolveTrackSplineActor();
+
+	if (!ActiveTrack)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[OFF TRACK] %s has no safe recovery point"), *GetName());
+		UE_LOG(LogTemp, Warning, TEXT("[OFF TRACK] %s has no TrackSplineActor"), *GetName());
 		return;
 	}
 
-	FVector SafeForward = LastSafeForward.GetSafeNormal2D();
-	if (SafeForward.IsNearlyZero())
+	FVector NewLocation;
+	FVector SafeForward;
+
+	if (bHasSafeRecoveryPoint)
 	{
-		SafeForward = GetActorForwardVector().GetSafeNormal2D();
+		NewLocation = LastSafeLocation;
+		SafeForward = LastSafeForward.GetSafeNormal2D();
+	}
+	else
+	{
+		// Fallback de secours : on prend quand même le centre le plus proche
+		NewLocation = ActiveTrack->GetClosestWorldLocationOnTrack(GetActorLocation());
+		SafeForward = ActiveTrack->GetTrackForwardDirectionAtWorldLocation(NewLocation);
 	}
 
+	// On re-snap toujours au CENTRE de la track
+	NewLocation = ActiveTrack->GetClosestWorldLocationOnTrack(NewLocation);
+	NewLocation.Z = LockedWorldZ;
+
+	// On re-prend toujours la direction de la track
+	SafeForward = ActiveTrack->GetTrackForwardDirectionAtWorldLocation(NewLocation);
+
+	if (SafeForward.IsNearlyZero())
+	{
+		SafeForward = LastSafeForward.GetSafeNormal2D();
+	}
 	if (SafeForward.IsNearlyZero())
 	{
 		SafeForward = FVector::ForwardVector;
 	}
 
-	FVector NewLocation = LastSafeLocation;
-
-	NewLocation.Z = LockedWorldZ;
 	const FRotator NewRotation = SafeForward.Rotation();
 
 	SetActorLocationAndRotation(
@@ -1187,12 +1212,18 @@ void ASTR_RacerPawn::TeleportBackToTrack()
 	MoveVelocity = SafeForward * CurrentSpeed;
 	LastTravelDir = SafeForward;
 
+	// On met à jour le point safe avec la vraie version propre
+	bHasSafeRecoveryPoint = true;
+	LastSafeLocation = NewLocation;
+	LastSafeForward = SafeForward;
+	LastSafeSpeed = CurrentSpeed;
+
 	// Reset état off-track
 	bIsOffTrack = false;
 	bOffTrackPenaltyActive = false;
 	OffTrackTime = 0.f;
 
-	UE_LOG(LogTemp, Warning, TEXT("[OFF TRACK] %s teleported back to LAST SAFE POINT"), *GetName());
+	UE_LOG(LogTemp, Warning, TEXT("[OFF TRACK] %s teleported back to TRACK CENTER"), *GetName());
 
 	if (GEngine)
 	{
