@@ -143,7 +143,7 @@ protected:
 	FText TitleText = FText::FromString(TEXT("SELECT YOUR RIDE"));
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Copy")
-	FText SubtitleText = FText::FromString(TEXT("BOTH PLAYERS MUST LOCK THEIR CAR BEFORE THE TUTORIAL STARTS"));
+	FText SubtitleText = FText::FromString(TEXT(" "));
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Copy")
 	FText PlayerOneTitleText = FText::FromString(TEXT("PLAYER 1"));
@@ -152,7 +152,7 @@ protected:
 	FText PlayerTwoTitleText = FText::FromString(TEXT("PLAYER 2"));
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Copy")
-	FText WaitingStatusText = FText::FromString(TEXT("CHOOSE A CAR AND PRESS A"));
+	FText WaitingStatusText = FText::FromString(TEXT("PICK YOU CAR"));
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Copy")
 	FText ReadyStatusText = FText::FromString(TEXT("READY FOR TUTORIAL"));
@@ -161,7 +161,7 @@ protected:
 	FText ConfirmPromptText = FText::FromString(TEXT("PRESS A TO CONFIRM"));
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Copy")
-	FText LockedInText = FText::FromString(TEXT("LOCKED IN"));
+	FText LockedInText = FText::FromString(TEXT("READY"));
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Copy")
 	FText UnlockPromptText = FText::FromString(TEXT("PRESS A TO UNLOCK"));
@@ -170,7 +170,7 @@ protected:
 	FText StartingTutorialText = FText::FromString(TEXT("STARTING TUTORIAL..."));
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Copy")
-	FText BottomInstructionTextContent = FText::FromString(TEXT("P1: Q / D / SPACE   |   P2: LEFT / RIGHT / ENTER   |   GAMEPAD: DPAD + A"));
+	FText BottomInstructionTextContent = FText::FromString(TEXT(""));
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Copy")
 	FText LeftButtonText = FText::FromString(TEXT("<"));
