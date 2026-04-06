@@ -242,14 +242,34 @@ TArray<FRaceLeaderboardEntry> ARaceGameMode::BuildLeaderboardSnapshot() const
 	});
 
 	TMap<TObjectPtr<AController>, FString> DisplayNames;
-	int32 HumanIndex = 1;
+	int32 HumanFallbackIndex = 1;
 	int32 AIIndex = 1;
 
 	for (AController* Controller : Controllers)
 	{
-		if (Cast<APlayerController>(Controller))
+		if (APlayerController* PC = Cast<APlayerController>(Controller))
 		{
-			DisplayNames.Add(Controller, FString::Printf(TEXT("Joueur %d"), HumanIndex++));
+			int32 PlayerNumber = INDEX_NONE;
+
+			if (GetWorld())
+			{
+				for (int32 LocalIndex = 0; LocalIndex < 8; ++LocalIndex)
+				{
+					if (UGameplayStatics::GetPlayerController(GetWorld(), LocalIndex) == PC)
+					{
+						PlayerNumber = LocalIndex + 1;
+						break;
+					}
+				}
+			}
+
+			if (PlayerNumber == INDEX_NONE)
+			{
+				PlayerNumber = HumanFallbackIndex;
+			}
+
+			DisplayNames.Add(Controller, FString::Printf(TEXT("Player %d"), PlayerNumber));
+			++HumanFallbackIndex;
 		}
 	}
 
@@ -257,7 +277,7 @@ TArray<FRaceLeaderboardEntry> ARaceGameMode::BuildLeaderboardSnapshot() const
 	{
 		if (!DisplayNames.Contains(Controller))
 		{
-			DisplayNames.Add(Controller, FString::Printf(TEXT("IA %d"), AIIndex++));
+			DisplayNames.Add(Controller, FString::Printf(TEXT("AI %d"), AIIndex++));
 		}
 	}
 
