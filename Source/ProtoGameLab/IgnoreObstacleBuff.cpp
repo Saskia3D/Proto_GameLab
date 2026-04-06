@@ -42,6 +42,8 @@ void UIgnoreObstacleBuff::Activate(APawn* Player)
 	Racer->BoxComp->SetCollisionResponseToAllChannels(ECR_Overlap);
 	Racer->BoxComp->SetNotifyRigidBodyCollision(false);
 
+	OnIgnoreObsatcleActivated();
+
 	if (GEngine)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Blue, TEXT("Ignore obstacle activated!"));
@@ -72,6 +74,8 @@ void UIgnoreObstacleBuff::OnBuffExpired()
 			Racer->BoxComp->SetNotifyRigidBodyCollision(bPreviousNotifyRigidBodyCollision);
 		}
 	}
+
+	OnIgnoreObstacleExpired();
 
 	if (GEngine)
 	{

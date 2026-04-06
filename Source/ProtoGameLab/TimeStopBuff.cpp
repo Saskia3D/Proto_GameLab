@@ -14,6 +14,8 @@ void UTimeStopBuff::Activate(APawn* Player)
 
 	ApplyTimeStop();
 
+	OnTimeStopActivated();
+
 	if (GEngine)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Blue, TEXT("TimeStop Activated!"));
@@ -91,6 +93,8 @@ void UTimeStopBuff::ApplyTimeStop()
 void UTimeStopBuff::OnBuffExpired()
 {
 	RestoreTimeStop();
+
+	OnTimeStopExpired();
 
 	if (GEngine)
 	{

@@ -18,6 +18,12 @@ class PROTOGAMELAB_API UTurboBuff : public UBuffBase
 public:
 	virtual void Activate(APawn* Player) override;
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "Audio")
+	void OnTurboActivated();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Audio")
+	void OnTurboExpired();
+
 protected:
 	virtual void OnBuffExpired() override;
 

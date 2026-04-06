@@ -21,6 +21,12 @@ class PROTOGAMELAB_API UTimeStopBuff : public UBuffBase
 public:
 	virtual void Activate(APawn* Player) override;
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "Audio")
+	void OnTimeStopActivated();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Audio")
+	void OnTimeStopExpired();
+
 protected:
 	virtual void OnBuffExpired() override;
 

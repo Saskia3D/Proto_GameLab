@@ -14,6 +14,12 @@ class PROTOGAMELAB_API UIgnoreObstacleBuff : public UBuffBase
 public:
 	virtual void Activate(APawn* Player) override;
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "Audio")
+	void OnIgnoreObsatcleActivated();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Audio")
+	void OnIgnoreObstacleExpired();
+
 protected:
 	virtual void OnBuffExpired() override;
 

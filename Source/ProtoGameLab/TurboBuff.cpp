@@ -50,6 +50,8 @@ void UTurboBuff::Activate(APawn* Player)
 
     }
 
+    OnTurboActivated();
+
     /*
     // Sauvegarder valeur actuelle
     OriginalTorqueMultiplier = Movement->EngineSetup.TorqueCurve.GetRichCurveConst()->GetLastKey().Value;
@@ -94,6 +96,8 @@ void UTurboBuff::OnBuffExpired()
     {
         ActiveBoostFX_Right->Deactivate();
     }
+
+    OnTurboExpired();
 
     if (GEngine)
     {
