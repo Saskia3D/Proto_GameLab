@@ -79,10 +79,10 @@ public:
 	UInputAction* ItemAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float MaxSpeed = 1600.0f;
+	float MaxSpeed = 1500.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float AccelerationRate = 725.0f;
+	float AccelerationRate = 700.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float BrakingDeceleration = 800.0f;
@@ -97,7 +97,7 @@ public:
 	float MinTurnRateAtMaxSpeed = 130.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Steering")
-	float SteeringInterpSpeed = 5.f;
+	float SteeringInterpSpeed = 5.75f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Steering")
 	float MinSpeedToTurn = 40.f;
