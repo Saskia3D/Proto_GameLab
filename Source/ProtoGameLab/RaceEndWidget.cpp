@@ -79,7 +79,23 @@ namespace
 
 	FLinearColor GetEntryColor(const FRaceLeaderboardEntry& Entry)
 	{
-		return Entry.PlayerName.StartsWith(TEXT("Joueur")) ? PlayerHighlightColor : DefaultTextColor;
+		return Entry.PlayerName.StartsWith(TEXT("Joueur"))
+			|| Entry.PlayerName.StartsWith(TEXT("Player"))
+			? PlayerHighlightColor
+			: DefaultTextColor;
+	}
+
+	FString GetDisplayedPlayerName(const FRaceLeaderboardEntry& Entry)
+	{
+		FString Name = Entry.PlayerName.TrimStartAndEnd().ToUpper();
+
+		if (Name.IsEmpty())
+		{
+			return TEXT("PLAYER");
+		}
+
+		Name.ReplaceInline(TEXT("JOUEUR"), TEXT("PLAYER"), ESearchCase::IgnoreCase);
+		return Name;
 	}
 
 	void StyleTextBlock(UTextBlock* TextBlock, const FSlateFontInfo& FontInfo, const FLinearColor& Color, const ETextJustify::Type Justification)
@@ -505,7 +521,7 @@ void URaceEndWidget::BuildRuntimeLeaderboard()
 	UTextBlock* Title = CreateTextBlock(
 		WidgetTree,
 		TEXT("LeaderboardTitle"),
-		TEXT("HIGH SCORES"),
+		TEXT("RANKING"),
 		MakeThemeFont(60),
 		DefaultTextColor,
 		ETextJustify::Center
@@ -513,45 +529,7 @@ void URaceEndWidget::BuildRuntimeLeaderboard()
 	if (UVerticalBoxSlot* TitleSlot = ScorePageWidget->AddChildToVerticalBox(Title))
 	{
 		TitleSlot->SetHorizontalAlignment(HAlign_Center);
-		TitleSlot->SetPadding(FMargin(0.f, 100.f, 0.f, 50.f));
-	}
-
-	UHorizontalBox* HeaderRow = WidgetTree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass(), TEXT("LeaderboardHeaderRow"));
-
-	UTextBlock* RankHeader = CreateTextBlock(WidgetTree, TEXT("RankHeader"), TEXT("RANK"), MakeThemeFont(25), DefaultTextColor, ETextJustify::Center);
-	if (UHorizontalBoxSlot* RankHeaderSlot = HeaderRow->AddChildToHorizontalBox(RankHeader))
-	{
-		FSlateChildSize Size;
-		Size.SizeRule = ESlateSizeRule::Fill;
-		Size.Value = 0.8f;
-		RankHeaderSlot->SetSize(Size);
-		RankHeaderSlot->SetPadding(FMargin(10.f, 0.f));
-	}
-
-	UTextBlock* NameHeader = CreateTextBlock(WidgetTree, TEXT("NameHeader"), TEXT("NAME"), MakeThemeFont(25), DefaultTextColor, ETextJustify::Center);
-	if (UHorizontalBoxSlot* NameHeaderSlot = HeaderRow->AddChildToHorizontalBox(NameHeader))
-	{
-		FSlateChildSize Size;
-		Size.SizeRule = ESlateSizeRule::Fill;
-		Size.Value = 1.2f;
-		NameHeaderSlot->SetSize(Size);
-		NameHeaderSlot->SetPadding(FMargin(10.f, 0.f));
-	}
-
-	UTextBlock* ScoreHeader = CreateTextBlock(WidgetTree, TEXT("ScoreHeader"), TEXT("SCORE"), MakeThemeFont(25), DefaultTextColor, ETextJustify::Center);
-	if (UHorizontalBoxSlot* ScoreHeaderSlot = HeaderRow->AddChildToHorizontalBox(ScoreHeader))
-	{
-		FSlateChildSize Size;
-		Size.SizeRule = ESlateSizeRule::Fill;
-		Size.Value = 1.0f;
-		ScoreHeaderSlot->SetSize(Size);
-		ScoreHeaderSlot->SetPadding(FMargin(10.f, 0.f));
-	}
-
-	if (UVerticalBoxSlot* HeaderSlot = ScorePageWidget->AddChildToVerticalBox(HeaderRow))
-	{
-		HeaderSlot->SetHorizontalAlignment(HAlign_Center);
-		HeaderSlot->SetPadding(FMargin(0.f, 0.f, 0.f, 22.f));
+		TitleSlot->SetPadding(FMargin(0.f, 100.f, 0.f, 60.f));
 	}
 
 	ScoreRowsWidget = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass(), TEXT("ScoreRowsWidget"));
@@ -565,7 +543,7 @@ void URaceEndWidget::BuildRuntimeLeaderboard()
 		UTextBlock* EmptyState = CreateTextBlock(
 			WidgetTree,
 			TEXT("LeaderboardEmpty"),
-			TEXT("NO SCORES RECORDED"),
+			TEXT("NO RANKING AVAILABLE"),
 			MakeThemeFont(25),
 			DefaultTextColor,
 			ETextJustify::Center
@@ -582,78 +560,39 @@ void URaceEndWidget::BuildRuntimeLeaderboard()
 			const FRaceLeaderboardEntry& Entry = LeaderboardEntries[EntryIndex];
 			const FLinearColor RowColor = GetEntryColor(Entry);
 
-			UHorizontalBox* Row = WidgetTree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass(), *FString::Printf(TEXT("ScoreRow_%d"), EntryIndex));
+			const FString RowTextValue = FString::Printf(
+				TEXT("%s  %s"),
+				*GetRetroRankText(Entry.Position),
+				*Entry.PlayerName.ToUpper()
+			);
 
-			UTextBlock* RankText = CreateTextBlock(
+			UTextBlock* RowText = CreateTextBlock(
 				WidgetTree,
-				*FString::Printf(TEXT("Rank_%d"), EntryIndex),
-				GetRetroRankText(Entry.Position),
-				MakeThemeFont(35),
+				*FString::Printf(TEXT("RankingRow_%d"), EntryIndex),
+				RowTextValue,
+				MakeThemeFont(36),
 				RowColor,
 				ETextJustify::Center
 			);
-			if (UHorizontalBoxSlot* RankSlot = Row->AddChildToHorizontalBox(RankText))
-			{
-				FSlateChildSize Size;
-				Size.SizeRule = ESlateSizeRule::Fill;
-				Size.Value = 0.8f;
-				RankSlot->SetSize(Size);
-				RankSlot->SetPadding(FMargin(10.f, 0.f));
-			}
 
-			UTextBlock* NameText = CreateTextBlock(
-				WidgetTree,
-				*FString::Printf(TEXT("Name_%d"), EntryIndex),
-				Entry.PlayerName.ToUpper(),
-				MakeThemeFont(35),
-				RowColor,
-				ETextJustify::Center
-			);
-			if (UHorizontalBoxSlot* NameSlot = Row->AddChildToHorizontalBox(NameText))
-			{
-				FSlateChildSize Size;
-				Size.SizeRule = ESlateSizeRule::Fill;
-				Size.Value = 1.2f;
-				NameSlot->SetSize(Size);
-				NameSlot->SetPadding(FMargin(10.f, 0.f));
-			}
-
-			UTextBlock* ScoreText = CreateTextBlock(
-				WidgetTree,
-				*FString::Printf(TEXT("Score_%d"), EntryIndex),
-				FormatArcadeScore(0),
-				MakeThemeFont(35),
-				RowColor,
-				ETextJustify::Center
-			);
-			if (UHorizontalBoxSlot* ScoreSlot = Row->AddChildToHorizontalBox(ScoreText))
-			{
-				FSlateChildSize Size;
-				Size.SizeRule = ESlateSizeRule::Fill;
-				Size.Value = 1.0f;
-				ScoreSlot->SetSize(Size);
-				ScoreSlot->SetPadding(FMargin(10.f, 0.f));
-			}
-
-			if (UVerticalBoxSlot* RowSlot = ScoreRowsWidget->AddChildToVerticalBox(Row))
+			if (UVerticalBoxSlot* RowSlot = ScoreRowsWidget->AddChildToVerticalBox(RowText))
 			{
 				RowSlot->SetHorizontalAlignment(HAlign_Center);
-				RowSlot->SetPadding(FMargin(0.f, 0.f, 0.f, ScoreRowSpacing));
+				RowSlot->SetPadding(FMargin(0.f, 0.f, 0.f, 28.f));
 			}
 
 			FAnimatedScoreRow& AnimatedRow = AnimatedScoreRows.AddDefaulted_GetRef();
-			AnimatedRow.RankText = RankText;
-			AnimatedRow.NameText = NameText;
-			AnimatedRow.ScoreText = ScoreText;
+			AnimatedRow.NameText = RowText;
 			AnimatedRow.RowColor = RowColor;
 			AnimatedRow.PlayerName = Entry.PlayerName;
 			AnimatedRow.Position = Entry.Position;
-			AnimatedRow.TargetScore = Entry.Score;
+			AnimatedRow.TargetScore = 0;
 			AnimatedRow.DisplayedScore = 0;
 		}
 	}
 
 	ResetScoreAnimation();
+	FinishScoreAnimation();
 }
 
 void URaceEndWidget::ResetScoreAnimation()
