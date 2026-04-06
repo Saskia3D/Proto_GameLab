@@ -49,6 +49,22 @@ class PROTOGAMELAB_API URaceEndWidget : public UUserWidget
 {
 	GENERATED_BODY()
 
+public:
+	UFUNCTION(BlueprintPure, Category = "RaceEnd|State")
+	int32 GetSelectedActionIndex() const;
+
+	UFUNCTION(BlueprintPure, Category = "RaceEnd|State")
+	bool IsShowingActionPage() const;
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "RaceEnd|Events")
+	void OnActionSelectionChanged(int32 NewIndex);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "RaceEnd|Events")
+	void OnRestartActivated();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "RaceEnd|Events")
+	void OnMainMenuActivated();
+
 protected:
 	virtual void NativeConstruct() override;
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;

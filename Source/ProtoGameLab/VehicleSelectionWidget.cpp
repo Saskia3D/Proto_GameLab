@@ -242,6 +242,62 @@ void UVehicleSelectionWidget::SetTargetLevelName(const FName InTargetLevelName)
 	TargetLevelName = InTargetLevelName;
 }
 
+int32 UVehicleSelectionWidget::GetSelectedVehicleIndex(const int32 PlayerIndex) const
+{
+	if (!PlayerStates.IsValidIndex(PlayerIndex))
+	{
+		return INDEX_NONE;
+	}
+
+	return PlayerStates[PlayerIndex].SelectedIndex;
+}
+
+FText UVehicleSelectionWidget::GetSelectedVehicleDisplayName(const int32 PlayerIndex) const
+{
+	if (!PlayerStates.IsValidIndex(PlayerIndex))
+	{
+		return FText::GetEmpty();
+	}
+
+	const int32 SelectedIndex = PlayerStates[PlayerIndex].SelectedIndex;
+	if (!VehicleOptions.IsValidIndex(SelectedIndex))
+	{
+		return FText::GetEmpty();
+	}
+
+	return FText::FromString(VehicleSelectionWidgetPrivate::GetVehicleDisplayName(VehicleOptions[SelectedIndex], SelectedIndex));
+}
+
+bool UVehicleSelectionWidget::IsPlayerSelectionConfirmed(const int32 PlayerIndex) const
+{
+	return PlayerStates.IsValidIndex(PlayerIndex) && PlayerStates[PlayerIndex].bConfirmed;
+}
+
+FText UVehicleSelectionWidget::GetPlayerStatusDisplayText(const int32 PlayerIndex) const
+{
+	if (!PlayerStates.IsValidIndex(PlayerIndex))
+	{
+		return FText::GetEmpty();
+	}
+
+	return PlayerStates[PlayerIndex].bConfirmed ? ReadyStatusText : WaitingStatusText;
+}
+
+FText UVehicleSelectionWidget::GetPlayerConfirmDisplayText(const int32 PlayerIndex) const
+{
+	if (!PlayerStates.IsValidIndex(PlayerIndex))
+	{
+		return FText::GetEmpty();
+	}
+
+	return PlayerStates[PlayerIndex].bConfirmed ? UnlockPromptText : ConfirmPromptText;
+}
+
+bool UVehicleSelectionWidget::AreAllPlayersReadyForTransition() const
+{
+	return AreAllPlayersConfirmed();
+}
+
 TSharedRef<SWidget> UVehicleSelectionWidget::RebuildWidget()
 {
 	InitializeDefaultVehicleOptions();

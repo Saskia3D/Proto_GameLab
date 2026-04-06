@@ -96,6 +96,24 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Navigation")
 	void SetTargetLevelName(FName InTargetLevelName);
 
+	UFUNCTION(BlueprintPure, Category = "VehicleSelection|State")
+	int32 GetSelectedVehicleIndex(int32 PlayerIndex) const;
+
+	UFUNCTION(BlueprintPure, Category = "VehicleSelection|State")
+	FText GetSelectedVehicleDisplayName(int32 PlayerIndex) const;
+
+	UFUNCTION(BlueprintPure, Category = "VehicleSelection|State")
+	bool IsPlayerSelectionConfirmed(int32 PlayerIndex) const;
+
+	UFUNCTION(BlueprintPure, Category = "VehicleSelection|State")
+	FText GetPlayerStatusDisplayText(int32 PlayerIndex) const;
+
+	UFUNCTION(BlueprintPure, Category = "VehicleSelection|State")
+	FText GetPlayerConfirmDisplayText(int32 PlayerIndex) const;
+
+	UFUNCTION(BlueprintPure, Category = "VehicleSelection|State")
+	bool AreAllPlayersReadyForTransition() const;
+
 	/** Triggered when any player moves the selection left/right */
 	UFUNCTION(BlueprintImplementableEvent, Category = "VehicleSelection|Events")
 	void OnSelectionChanged(int32 PlayerIndex, int32 NewIndex);

@@ -140,6 +140,16 @@ namespace
 	}
 }
 
+int32 URaceEndWidget::GetSelectedActionIndex() const
+{
+	return SelectedActionIndex;
+}
+
+bool URaceEndWidget::IsShowingActionPage() const
+{
+	return CurrentPage == ERaceEndPage::Actions;
+}
+
 void URaceEndWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
@@ -211,15 +221,23 @@ FReply URaceEndWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEv
 	{
 		if (IsNextActionKey(Key))
 		{
-			SelectedActionIndex = 1;
-			ApplyActionSelectionVisuals();
+			if (SelectedActionIndex != 1)
+			{
+				SelectedActionIndex = 1;
+				ApplyActionSelectionVisuals();
+				OnActionSelectionChanged(SelectedActionIndex);
+			}
 			return FReply::Handled();
 		}
 
 		if (IsPreviousActionKey(Key))
 		{
-			SelectedActionIndex = 0;
-			ApplyActionSelectionVisuals();
+			if (SelectedActionIndex != 0)
+			{
+				SelectedActionIndex = 0;
+				ApplyActionSelectionVisuals();
+				OnActionSelectionChanged(SelectedActionIndex);
+			}
 			return FReply::Handled();
 		}
 
@@ -261,6 +279,8 @@ FReply URaceEndWidget::NativeOnKeyUp(const FGeometry& InGeometry, const FKeyEven
 
 void URaceEndWidget::OnRestartClicked()
 {
+	OnRestartActivated();
+
 	FName RestartLevel = FName("Lvl_Test_2Players");
 
 	if (const UWorld* World = GetWorld())
@@ -279,6 +299,7 @@ void URaceEndWidget::OnRestartClicked()
 
 void URaceEndWidget::OnMainMenuClicked()
 {
+	OnMainMenuActivated();
 	OpenLevelWithCleanInput(FName("MainMenu"), false);
 }
 
@@ -740,6 +761,7 @@ void URaceEndWidget::ShowActionPage()
 	}
 
 	ApplyActionSelectionVisuals();
+	OnActionSelectionChanged(SelectedActionIndex);
 	SetKeyboardFocus();
 }
 
