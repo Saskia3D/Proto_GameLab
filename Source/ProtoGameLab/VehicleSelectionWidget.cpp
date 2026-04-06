@@ -28,6 +28,7 @@
 #include "STR_RacerPawn.h"
 #include "Styling/CoreStyle.h"
 #include "VehicleSelectionPreviewActor.h"
+#include "UObject/SoftObjectPtr.h"
 #include "Widgets/SWidget.h"
 
 namespace VehicleSelectionWidgetPrivate
@@ -98,7 +99,17 @@ namespace VehicleSelectionWidgetPrivate
 
 	FSoftObjectPath GetVehicleSourcePath(const FVehicleSelectionOption& Option)
 	{
-		return !Option.VehicleSourceAsset.IsNull() ? Option.VehicleSourceAsset : Option.VehicleMesh.ToSoftObjectPath();
+		if (!Option.VehiclePawnClass.IsNull())
+		{
+			return Option.VehiclePawnClass.ToSoftObjectPath();
+		}
+
+		if (!Option.VehicleSourceAsset.IsNull())
+		{
+			return Option.VehicleSourceAsset;
+		}
+
+		return Option.VehicleMesh.ToSoftObjectPath();
 	}
 
 	struct FResolvedVehiclePreviewData
@@ -119,14 +130,28 @@ namespace VehicleSelectionWidgetPrivate
 	{
 		FResolvedVehiclePreviewData PreviewData;
 
-		if (!VehicleClass || !VehicleClass->IsChildOf(ASTR_RacerPawn::StaticClass()))
+		if (!VehicleClass)
 		{
+			UE_LOG(LogTemp, Warning, TEXT("[VehicleSelect] ResolveVehiclePreviewDataFromClass: VehicleClass is null"));
+			return PreviewData;
+		}
+
+		if (!VehicleClass->IsChildOf(ASTR_RacerPawn::StaticClass()))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[VehicleSelect] ResolveVehiclePreviewDataFromClass: %s is not a STR_RacerPawn class"), *GetNameSafe(VehicleClass));
 			return PreviewData;
 		}
 
 		const ASTR_RacerPawn* DefaultPawn = Cast<ASTR_RacerPawn>(VehicleClass->GetDefaultObject());
-		if (!DefaultPawn || !DefaultPawn->CarMesh)
+		if (!DefaultPawn)
 		{
+			UE_LOG(LogTemp, Warning, TEXT("[VehicleSelect] ResolveVehiclePreviewDataFromClass: Default object missing for %s"), *GetNameSafe(VehicleClass));
+			return PreviewData;
+		}
+
+		if (!DefaultPawn->CarMesh)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[VehicleSelect] ResolveVehiclePreviewDataFromClass: CarMesh missing on %s"), *GetNameSafe(VehicleClass));
 			return PreviewData;
 		}
 
@@ -141,6 +166,14 @@ namespace VehicleSelectionWidgetPrivate
 		{
 			PreviewData.Materials.Add(DefaultPawn->CarMesh->GetMaterial(MaterialIndex));
 		}
+
+		UE_LOG(LogTemp, Warning, TEXT("[VehicleSelect] Class=%s Mesh=%s Materials=%d Loc=%s Rot=%s Scale=%s"),
+			*GetNameSafe(VehicleClass),
+			DefaultPawn->CarMesh ? *GetNameSafe(DefaultPawn->CarMesh->GetStaticMesh()) : TEXT("NULL"),
+			DefaultPawn->CarMesh ? DefaultPawn->CarMesh->GetNumMaterials() : -1,
+			DefaultPawn->CarMesh ? *DefaultPawn->CarMesh->GetRelativeLocation().ToString() : TEXT("NO_CARMESH"),
+			DefaultPawn->CarMesh ? *DefaultPawn->CarMesh->GetRelativeRotation().ToString() : TEXT("NO_CARMESH"),
+			DefaultPawn->CarMesh ? *DefaultPawn->CarMesh->GetRelativeScale3D().ToString() : TEXT("NO_CARMESH"));
 
 		return PreviewData;
 	}
@@ -370,13 +403,13 @@ void UVehicleSelectionWidget::InitializeDefaultVehicleOptions()
 	{
 		FVehicleSelectionOption& NewOption = VehicleOptions.AddDefaulted_GetRef();
 		NewOption.DisplayName = FText::FromString(Name);
-		NewOption.VehicleSourceAsset = FSoftObjectPath(AssetPath);
+		NewOption.VehiclePawnClass = TSoftClassPtr<ASTR_RacerPawn>(FSoftObjectPath(AssetPath));
 		NewOption.PreviewScale = FVector(1.0f, 1.0f, 1.0f);
 	};
 
-	AddDefaultVehicle(TEXT("CAR 1"), TEXT("/Game/Cars/Car1.Car1"));
-	AddDefaultVehicle(TEXT("CAR 2"), TEXT("/Game/Cars/Car2.Car2"));
-	AddDefaultVehicle(TEXT("CAR 3"), TEXT("/Game/Cars/Car3.Car3"));
+	AddDefaultVehicle(TEXT("CAR 1"), TEXT("/Game/Cars/Car1.Car1_C"));
+	AddDefaultVehicle(TEXT("CAR 2"), TEXT("/Game/Cars/Car2.Car2_C"));
+	AddDefaultVehicle(TEXT("CAR 3"), TEXT("/Game/Cars/Car3.Car3_C"));
 }
 void UVehicleSelectionWidget::CacheThemeFont()
 {
@@ -939,26 +972,42 @@ void UVehicleSelectionWidget::RefreshPreview(const int32 PlayerIndex)
 	}
 
 	const FVehicleSelectionOption& VehicleOption = VehicleOptions[PlayerState.SelectedIndex];
+
+	VehicleSelectionWidgetPrivate::FResolvedVehiclePreviewData PreviewData;
+
+	if (!VehicleOption.VehiclePawnClass.IsNull())
+	{
+		if (UClass* VehicleClass = VehicleOption.VehiclePawnClass.LoadSynchronous())
+		{
+			PreviewData = VehicleSelectionWidgetPrivate::ResolveVehiclePreviewDataFromClass(VehicleClass);
+		}
+	}
+	else if (!VehicleOption.VehicleMesh.IsNull())
+	{
+		if (UStaticMesh* Mesh = VehicleOption.VehicleMesh.LoadSynchronous())
+		{
+			PreviewData.Mesh = Mesh;
+		}
+	}
+
 	TSubclassOf<AVehicleSelectionPreviewActor> PreviewClass = VehicleOption.PreviewActorClass;
 	if (!PreviewClass)
 	{
 		PreviewClass = AVehicleSelectionPreviewActor::StaticClass();
 	}
 
-	if (AVehicleSelectionPreviewActor* PreviewActor = Cast<AVehicleSelectionPreviewActor>(PlayerState.PreviewViewport->Spawn(PreviewClass)))
+	if (AVehicleSelectionPreviewActor* PreviewActor =
+		Cast<AVehicleSelectionPreviewActor>(PlayerState.PreviewViewport->Spawn(PreviewClass)))
 	{
-		const VehicleSelectionWidgetPrivate::FResolvedVehiclePreviewData PreviewData =
-			VehicleSelectionWidgetPrivate::ResolveVehiclePreviewDataFromPath(
-				VehicleSelectionWidgetPrivate::GetVehicleSourcePath(VehicleOption));
-
 		if (PreviewData.IsValid())
 		{
 			PreviewActor->SetPreviewMesh(PreviewData.Mesh);
-			PreviewActor->SetPreviewMaterials(PreviewData.Materials);
+			//PreviewActor->SetPreviewMaterials(PreviewData.Materials);
 			PreviewActor->SetPreviewRelativeTransform(
 				PreviewData.RelativeLocation,
 				PreviewData.RelativeRotation,
-				PreviewData.RelativeScale);
+				PreviewData.RelativeScale
+			);
 		}
 
 		PreviewActor->SetActorLocation(VehicleOption.PreviewLocation);
@@ -973,7 +1022,8 @@ void UVehicleSelectionWidget::RefreshPreview(const int32 PlayerIndex)
 				PreviewActor->GetPreviewBounds(),
 				PreviewCameraRotation,
 				PreviewCameraDistanceMultiplier,
-				PreviewMinimumCameraDistance);
+				PreviewMinimumCameraDistance
+			);
 		}
 	}
 }

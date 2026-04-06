@@ -29,6 +29,9 @@ struct FVehicleSelectionOption
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vehicle", meta = (AllowedClasses = "/Script/Engine.StaticMesh"))
 	TSoftObjectPtr<UStaticMesh> VehicleMesh;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vehicle")
+	TSoftClassPtr<ASTR_RacerPawn> VehiclePawnClass;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Vehicle", meta = (AllowedClasses = "/Script/Engine.StaticMesh,/Script/Engine.Blueprint,/Script/CoreUObject.Class"))
 	FSoftObjectPath VehicleSourceAsset;
 
