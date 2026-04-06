@@ -8,6 +8,7 @@
 #include "Blueprint/UserWidget.h"
 #include "TimerManager.h"
 #include "BuffComponent.h"
+#include "InputCoreTypes.h"
 #include "BuffBase.h"
 
 ATutorialManager::ATutorialManager()
@@ -39,6 +40,7 @@ void ATutorialManager::BeginPlay()
 	GiveTutorialStarterItemsIfPossible();
 	ElapsedTutorialTime = 0.f;
 	ReadyControllers.Reset();
+	SkipHeldControllers.Reset();
 
 	bInitialTrackRulesApplied = false;
 	ApplyInitialTutorialTrackRulesIfPossible();
@@ -66,6 +68,8 @@ void ATutorialManager::Tick(float DeltaTime)
 	{
 		return;
 	}
+
+	HandleSkipInputs();
 
 	ElapsedTutorialTime += DeltaTime;
 
@@ -482,4 +486,67 @@ void ATutorialManager::GiveTutorialStarterItemsIfPossible()
 	}
 
 	bTutorialStarterItemsGranted = true;
+}
+
+bool ATutorialManager::IsSkipInputDown(APlayerController* PC) const
+{
+	if (!PC)
+	{
+		return false;
+	}
+
+	return PC->IsInputKeyDown(EKeys::Gamepad_DPad_Up);
+}
+
+void ATutorialManager::HandleSkipInputs()
+{
+	const TArray<APlayerController*> Controllers = GetLocalRaceControllers();
+
+	for (APlayerController* PC : Controllers)
+	{
+		if (!PC)
+		{
+			continue;
+		}
+
+		const bool bSkipDown = IsSkipInputDown(PC);
+
+		if (bSkipDown)
+		{
+			if (!SkipHeldControllers.Contains(PC))
+			{
+				SkipHeldControllers.Add(PC);
+
+				if (APawn* Pawn = PC->GetPawn())
+				{
+					UE_LOG(LogTemp, Warning, TEXT("[TUTORIAL] Skip pressed by %s"), *GetNameSafe(PC));
+					CompleteTutorialForPawn(Pawn);
+				}
+			}
+		}
+		else
+		{
+			SkipHeldControllers.Remove(PC);
+		}
+	}
+}
+
+FText ATutorialManager::GetSkipStatusText(AController* Controller) const
+{
+	if (bRaceStartPending)
+	{
+		return FText::FromString(TEXT("Starting race..."));
+	}
+
+	if (!bTutorialActive || bTutorialFinished)
+	{
+		return FText::GetEmpty();
+	}
+
+	if (IsControllerReady(Controller))
+	{
+		return FText::FromString(TEXT("Ready - waiting for other player..."));
+	}
+
+	return FText::FromString(TEXT("D-Pad Up : Skip Tutorial"));
 }
