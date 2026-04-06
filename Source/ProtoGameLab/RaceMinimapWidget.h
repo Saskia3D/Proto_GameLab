@@ -51,10 +51,10 @@ public:
 	bool bUseCameraAlignedAxes = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap|Layout")
-	bool bFlipHorizontally = true;
+	bool bFlipHorizontally = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap|Layout")
-	bool bFlipVertically = false;
+	bool bFlipVertically = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap")
 	float InnerPadding = 18.f;

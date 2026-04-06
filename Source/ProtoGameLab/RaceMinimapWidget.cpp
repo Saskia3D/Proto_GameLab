@@ -122,6 +122,8 @@ FVector2D URaceMinimapWidget::ProjectWorldToMinimap(const FVector& WorldLocation
 	const FVector2D TrackSpaceLocation = ProjectWorldToTrackSpace(WorldLocation);
 	float NormalizedX = (TrackSpaceLocation.X - CachedWorldBounds.Min.X) / BoundsSize.X;
 	float NormalizedY = (TrackSpaceLocation.Y - CachedWorldBounds.Min.Y) / BoundsSize.Y;
+	//float NormalizedX = 1.f - ((TrackSpaceLocation.X - CachedWorldBounds.Min.X) / BoundsSize.X);
+	//float NormalizedY = 1.f - ((TrackSpaceLocation.Y - CachedWorldBounds.Min.Y) / BoundsSize.Y);
 
 	if (bFlipHorizontally)
 	{
