@@ -20,9 +20,9 @@ class PROTOGAMELAB_API ATrackSplineActor : public AActor
 public:
 	ATrackSplineActor();
 
-#if WITH_EDITOR
+//#if WITH_EDITOR
 	virtual void OnConstruction(const FTransform& Transform) override;
-#endif
+//#endif
 
 	// --- EXISTING ROAD SETTINGS ---
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track")
