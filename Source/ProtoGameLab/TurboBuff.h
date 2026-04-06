@@ -5,7 +5,6 @@
 #include "CoreMinimal.h"
 #include "BuffBase.h"
 #include "NiagaraComponent.h"
-#include "NiagaraComponent.h"
 #include "TurboBuff.generated.h"
 
 /**

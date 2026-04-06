@@ -2,6 +2,7 @@
 
 #include "TimeStopBuff.h"
 #include "MyVehiclePawn.h"
+#include "NiagaraFunctionLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
 
@@ -49,6 +50,21 @@ void UTimeStopBuff::ApplyTimeStop()
 
 		SavedDilations.Add(A, A->CustomTimeDilation);
 		A->CustomTimeDilation = 0.001f;
+
+		if (TimeStopFX)
+		{
+			UNiagaraComponent* FX = UNiagaraFunctionLibrary::SpawnSystemAttached(
+				TimeStopFX,
+				A->GetRootComponent(),
+				NAME_None,
+				FVector::ZeroVector,
+				FRotator::ZeroRotator,
+				EAttachLocation::KeepRelativeOffset,
+				true
+			);
+
+			ActiveFXMap.Add(A, FX);
+		}
 	}
 
 	//Geler les obstacles
@@ -105,6 +121,16 @@ void UTimeStopBuff::RestoreTimeStop()
 		UE_LOG(LogTemp, Warning, TEXT("[TS] Restored %s to %f"),
 			*GetNameSafe(A), RestoredValue);
 	}
+
+	for (auto& Pair : ActiveFXMap)
+	{
+		if (UNiagaraComponent* FX = Pair.Value)
+		{
+			FX->Deactivate();
+		}
+	}
+
+	ActiveFXMap.Empty();
 
 	SavedDilations.Empty();
 }

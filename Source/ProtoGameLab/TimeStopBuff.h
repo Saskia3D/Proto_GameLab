@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "BuffBase.h"
+#include "NiagaraComponent.h"
+#include "NiagaraSystem.h"
 #include "TimeStopBuff.generated.h"
 
 class AActor;
@@ -31,4 +33,13 @@ private:
 
 	void ApplyTimeStop();
 	void RestoreTimeStop();
+
+	UPROPERTY(EditDefaultsOnly, Category = "TimeStop|VFX")
+	UNiagaraSystem* TimeStopFX;
+
+	UPROPERTY()
+	UNiagaraComponent* ActiveTimeStopFX;
+
+	UPROPERTY()
+	TMap<TWeakObjectPtr<AActor>, UNiagaraComponent*> ActiveFXMap;
 };
