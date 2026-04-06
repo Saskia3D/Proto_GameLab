@@ -81,6 +81,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tutorial|UI")
 	TSubclassOf<UUserWidget> TutorialOverlayClass;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tutorial|Skip")
+	float SkipHoldDuration = 0.75f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tutorial|Items")
 	TSubclassOf<UBuffBase> TutorialStarterBuffClass;
 
@@ -103,7 +106,10 @@ private:
 	UPROPERTY()
 	TSet<TObjectPtr<AController>> SkipHeldControllers;
 
-	void HandleSkipInputs();
+	UPROPERTY()
+	TMap<TObjectPtr<AController>, float> SkipHoldTimeByController;
+
+	void HandleSkipInputs(float DeltaTime);
 	bool IsSkipInputDown(APlayerController* PC) const;
 
 	void CreateTutorialWidgets();
