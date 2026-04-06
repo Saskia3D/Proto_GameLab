@@ -16,6 +16,7 @@
 void URaceMinimapWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
+	SetVisibility(ESlateVisibility::Collapsed);
 
 	if (WidgetTree && !WidgetTree->RootWidget)
 	{
