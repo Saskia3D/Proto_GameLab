@@ -8,6 +8,7 @@
 #include "Blueprint/UserWidget.h"
 #include "TimerManager.h"
 #include "BuffComponent.h"
+#include "InputCoreTypes.h"
 #include "BuffBase.h"
 
 ATutorialManager::ATutorialManager()
@@ -39,6 +40,8 @@ void ATutorialManager::BeginPlay()
 	GiveTutorialStarterItemsIfPossible();
 	ElapsedTutorialTime = 0.f;
 	ReadyControllers.Reset();
+	SkipHoldTimeByController.Reset();
+	SkipHeldControllers.Reset();
 
 	bInitialTrackRulesApplied = false;
 	ApplyInitialTutorialTrackRulesIfPossible();
@@ -66,6 +69,8 @@ void ATutorialManager::Tick(float DeltaTime)
 	{
 		return;
 	}
+
+	HandleSkipInputs(DeltaTime);
 
 	ElapsedTutorialTime += DeltaTime;
 
@@ -482,4 +487,75 @@ void ATutorialManager::GiveTutorialStarterItemsIfPossible()
 	}
 
 	bTutorialStarterItemsGranted = true;
+}
+
+FText ATutorialManager::GetSkipStatusText(AController* Controller) const
+{
+	if (bRaceStartPending)
+	{
+		return FText::FromString(TEXT("Starting race..."));
+	}
+
+	if (!bTutorialActive || bTutorialFinished)
+	{
+		return FText::GetEmpty();
+	}
+
+	if (IsControllerReady(Controller))
+	{
+		return FText::FromString(TEXT("Ready - waiting for other player..."));
+	}
+
+	return FText::FromString(TEXT("D-Pad Up : Skip Tutorial"));
+}
+
+bool ATutorialManager::IsSkipInputDown(APlayerController* PC) const
+{
+	if (!PC)
+	{
+		return false;
+	}
+
+	return PC->IsInputKeyDown(EKeys::Gamepad_DPad_Up);
+}
+
+void ATutorialManager::HandleSkipInputs(float DeltaTime)
+{
+	const TArray<APlayerController*> Controllers = GetLocalRaceControllers();
+
+	for (APlayerController* PC : Controllers)
+	{
+		if (!PC)
+		{
+			continue;
+		}
+
+		if (ReadyControllers.Contains(PC))
+		{
+			SkipHoldTimeByController.Remove(PC);
+			continue;
+		}
+
+		if (IsSkipInputDown(PC))
+		{
+			float& HeldTime = SkipHoldTimeByController.FindOrAdd(PC);
+			HeldTime += DeltaTime;
+
+			if (HeldTime >= SkipHoldDuration)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("[TUTORIAL] Skip hold completed by %s"), *GetNameSafe(PC));
+
+				if (APawn* Pawn = PC->GetPawn())
+				{
+					CompleteTutorialForPawn(Pawn);
+				}
+
+				SkipHoldTimeByController.Remove(PC);
+			}
+		}
+		else
+		{
+			SkipHoldTimeByController.Remove(PC);
+		}
+	}
 }

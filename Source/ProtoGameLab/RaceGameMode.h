@@ -160,6 +160,12 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Race")
 	ATrackManager* GetRaceTrackManager() const { return TrackManager; }
 
+	UFUNCTION(BlueprintPure, Category = "Race|UI")
+	bool ShouldShowRaceHUD() const
+	{
+		return RaceState != ERaceState::Waiting;
+	}
+
 	const FPlayerRaceProgress* GetPlayerProgress(AController* Controller) const; //Recupere toute la progression
 	TArray<FRaceLeaderboardEntry> BuildLeaderboardSnapshot() const;
 
