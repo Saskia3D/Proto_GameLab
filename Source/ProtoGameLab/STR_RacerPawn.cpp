@@ -1267,6 +1267,7 @@ void ASTR_RacerPawn::TeleportBackToTrack()
 	}
 
 	TeleportFeedbackTimer = TeleportFeedbackDuration;
+	OnOffTrackStateChanged(false, GetLocalPlayerIndex());
 }
 
 void ASTR_RacerPawn::ResetTrackRuleState()
