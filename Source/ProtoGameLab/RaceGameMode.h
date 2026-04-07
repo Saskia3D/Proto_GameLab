@@ -156,6 +156,15 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Race|UI")
 	int32 GetFinishCountdownRemainingSeconds() const;
 
+	UFUNCTION(BlueprintPure, Category = "Race|UI")
+	bool IsAllPlayersFinishedDelayActive() const;
+
+	UFUNCTION(BlueprintPure, Category = "Race|UI")
+	float GetAllPlayersFinishedDelayRemaining() const;
+
+	UFUNCTION(BlueprintPure, Category = "Race|UI")
+	int32 GetAllPlayersFinishedDelayRemainingSeconds() const;
+
 	UFUNCTION(BlueprintPure, Category = "Race")
 	ATrackSplineActor* GetRaceTrackSplineActor() const { return TrackSplineActor; }
 
@@ -200,6 +209,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Race|End")
 	float FinishCountdownSeconds = 15.f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Race|End")
+	float AllPlayersFinishedDelaySeconds = 3.f;
+
 	UPROPERTY(EditDefaultsOnly, Category = "VFX")
 	TSubclassOf<AActor> WinnerCrownActorClass = nullptr;
 
@@ -221,6 +233,11 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Race")
 	TObjectPtr<ATrackSplineActor> TrackSplineActor = nullptr;
+
+	bool bAllPlayersFinishedDelayStarted = false;
+	FTimerHandle AllPlayersFinishedDelayHandle;
+
+	void StartAllPlayersFinishedDelay();
 
 	void RefreshControllerProgress(AController* Controller);
 	void RefreshAllPlayerProgress();

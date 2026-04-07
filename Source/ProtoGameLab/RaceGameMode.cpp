@@ -76,10 +76,12 @@ void ARaceGameMode::StartRace()
 
 	bHasTriggeredEndMenu = false;
 	bFinishCountdownStarted = false;
+	bAllPlayersFinishedDelayStarted = false;
 
 	if (GetWorld())
 	{
 		GetWorldTimerManager().ClearTimer(FinishCountdownHandle);
+		GetWorldTimerManager().ClearTimer(AllPlayersFinishedDelayHandle);
 	}
 
 	if (GetWorld())
@@ -412,8 +414,13 @@ void ARaceGameMode::NotifyPlayerFinished(AActor* PlayerActor)
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, Message);
 	}
 
-	// On d�marre le compte � rebours seulement quand le premier joueur finit
-	if (!bFinishCountdownStarted && bUseFinishCountdown)
+	// Si tous les joueurs attendus ont fini, on ne finit PAS immédiatement.
+    // On lance plutot le petit delai final avant le menu.
+	if (FinishOrder.Num() >= NumPlayersToFinish)
+	{
+		StartAllPlayersFinishedDelay();
+	}
+	else if (!bFinishCountdownStarted && bUseFinishCountdown)
 	{
 		bFinishCountdownStarted = true;
 
@@ -436,12 +443,6 @@ void ARaceGameMode::NotifyPlayerFinished(AActor* PlayerActor)
 			GEngine->AddOnScreenDebugMessage(-1, 4.f, FColor::Yellow, CountdownMsg);
 		}
 	}
-
-	// Si tous les joueurs attendus ont fini, fin imm�diate
-	if (FinishOrder.Num() >= NumPlayersToFinish)
-	{
-		EndRace();
-	}
 }
 
 void ARaceGameMode::EndRace()
@@ -455,6 +456,8 @@ void ARaceGameMode::EndRace()
 	RaceState = ERaceState::Finished;
 
 	GetWorldTimerManager().ClearTimer(FinishCountdownHandle);
+	GetWorldTimerManager().ClearTimer(AllPlayersFinishedDelayHandle);
+
 	CacheLeaderboardForEndMenu();
 
 	if (GEngine && FinishOrder.Num() > 0)
@@ -469,15 +472,6 @@ void ARaceGameMode::EndRace()
 
 	UE_LOG(LogTemp, Warning, TEXT("[RACE END] Opening RaceEndMenu"));
 	UGameplayStatics::OpenLevel(GetWorld(), FName("RaceEndMenu"));
-}
-
-AActor* ARaceGameMode::GetWinner() const
-{
-	if (FinishOrder.Num() > 0)
-	{
-		return FinishOrder[0].PlayerActor;
-	}
-	return nullptr;
 }
 
 void ARaceGameMode::NotifyCheckpointPassed(APawn* PlayerPawn, int32 CheckpointIndex)
@@ -1037,3 +1031,60 @@ int32 ARaceGameMode::GetFinishCountdownRemainingSeconds() const
 	return FMath::CeilToInt(GetFinishCountdownRemaining());
 }
 
+void ARaceGameMode::StartAllPlayersFinishedDelay()
+{
+	if (!GetWorld() || bHasTriggeredEndMenu || bAllPlayersFinishedDelayStarted)
+	{
+		return;
+	}
+
+	bAllPlayersFinishedDelayStarted = true;
+
+	// On annule le countdown principal, car tout le monde a fini
+	GetWorldTimerManager().ClearTimer(FinishCountdownHandle);
+
+	UE_LOG(LogTemp, Warning, TEXT("[RACE END] All players finished. Opening end menu in %.2fs"), AllPlayersFinishedDelaySeconds);
+
+	GetWorldTimerManager().SetTimer(
+		AllPlayersFinishedDelayHandle,
+		this,
+		&ARaceGameMode::EndRace,
+		AllPlayersFinishedDelaySeconds,
+		false
+	);
+}
+
+bool ARaceGameMode::IsAllPlayersFinishedDelayActive() const
+{
+	if (!bAllPlayersFinishedDelayStarted || RaceState != ERaceState::Running || bHasTriggeredEndMenu || !GetWorld())
+	{
+		return false;
+	}
+
+	return GetWorld()->GetTimerManager().IsTimerActive(AllPlayersFinishedDelayHandle);
+}
+
+float ARaceGameMode::GetAllPlayersFinishedDelayRemaining() const
+{
+	if (!IsAllPlayersFinishedDelayActive() || !GetWorld())
+	{
+		return 0.f;
+	}
+
+	return GetWorld()->GetTimerManager().GetTimerRemaining(AllPlayersFinishedDelayHandle);
+}
+
+int32 ARaceGameMode::GetAllPlayersFinishedDelayRemainingSeconds() const
+{
+	return FMath::CeilToInt(GetAllPlayersFinishedDelayRemaining());
+}
+
+AActor* ARaceGameMode::GetWinner() const
+{
+	if (FinishOrder.Num() > 0)
+	{
+		return FinishOrder[0].PlayerActor;
+	}
+
+	return nullptr;
+}
