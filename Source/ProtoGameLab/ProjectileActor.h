@@ -47,4 +47,10 @@ public:
         UPrimitiveComponent* OtherComp,
         FVector NormalImpulse,
         const FHitResult& Hit);
+
+    UPROPERTY()
+    APawn* Target;
+
+    UFUNCTION()
+    void InitHoming(APawn* InTarget);
 };
