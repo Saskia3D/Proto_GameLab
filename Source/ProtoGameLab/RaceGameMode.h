@@ -210,7 +210,7 @@ protected:
 	float FinishCountdownSeconds = 15.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Race|End")
-	float AllPlayersFinishedDelaySeconds = 3.f;
+	float AllPlayersFinishedDelaySeconds = 4.5f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "VFX")
 	TSubclassOf<AActor> WinnerCrownActorClass = nullptr;
