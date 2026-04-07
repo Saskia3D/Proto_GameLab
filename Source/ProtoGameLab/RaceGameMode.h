@@ -12,6 +12,7 @@
 #include "GameFramework/GameModeBase.h"
 #include "RaceLeaderboardEntry.h"
 #include "NiagaraSystem.h"
+#include "GameFramework/Actor.h"
 #include "RaceGameMode.generated.h"
 
 class ATrackSplineActor;
@@ -199,8 +200,8 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Race|End")
 	float FinishCountdownSeconds = 15.f;
 
-	UPROPERTY(EditDefaultsOnly, Category="VFX")
-    TObjectPtr<UNiagaraSystem> WinnerConfettiEffect = nullptr;
+	UPROPERTY(EditDefaultsOnly, Category = "VFX")
+	TSubclassOf<AActor> WinnerCrownActorClass = nullptr;
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Race")

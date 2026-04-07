@@ -356,22 +356,30 @@ void ARaceGameMode::NotifyPlayerFinished(AActor* PlayerActor)
 	NewEntry.FinishTime = GetRaceTimeSeconds();
 	FinishOrder.Add(NewEntry);
 
-	if (FinishOrder.Num() == 1 && WinnerConfettiEffect && PlayerActor && PlayerActor->GetRootComponent())
+	if (FinishOrder.Num() == 1 && WinnerCrownActorClass && PlayerActor && PlayerActor->GetRootComponent())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[CONFETTI] Spawning attached on %s"), *GetNameSafe(PlayerActor));
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-		UNiagaraFunctionLibrary::SpawnSystemAttached(
-			WinnerConfettiEffect,
-			PlayerActor->GetRootComponent(),
-			NAME_None,
-			FVector(0.f, 0.f, 300.f),
+		AActor* SpawnedCrown = GetWorld()->SpawnActor<AActor>(
+			WinnerCrownActorClass,
+			PlayerActor->GetActorLocation(),
 			FRotator::ZeroRotator,
-			EAttachLocation::KeepRelativeOffset,
-			true,
-			true,
-			ENCPoolMethod::None,
-			true
+			SpawnParams
 		);
+
+		if (SpawnedCrown)
+		{
+			SpawnedCrown->AttachToComponent(
+				PlayerActor->GetRootComponent(),
+				FAttachmentTransformRules::KeepRelativeTransform
+			);
+
+			SpawnedCrown->SetActorRelativeLocation(FVector(0.f, 0.f, 220.f));
+			SpawnedCrown->SetActorRelativeRotation(FRotator::ZeroRotator);
+
+			UE_LOG(LogTemp, Warning, TEXT("[CROWN] Attached crown to %s"), *GetNameSafe(PlayerActor));
+		}
 	}
 
 	const int32 FinalScore = GetPlayerScore(Controller);
