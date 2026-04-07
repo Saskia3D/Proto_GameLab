@@ -39,6 +39,19 @@ void AProjectileActor::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
 
+    if (Target)
+    {
+        FVector DirectionToTarget = (Target->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+
+        // Lerp pour un effet smooth (optionnel mais recommandé)
+        MoveDirection = FMath::VInterpTo(
+            MoveDirection,
+            DirectionToTarget,
+            DeltaTime,
+            5.0f // vitesse de rotation (ajuste ici)
+        ).GetSafeNormal();
+    }
+
     SetActorLocation(GetActorLocation() + MoveDirection * Speed * DeltaTime);
 }
 
@@ -63,4 +76,9 @@ void AProjectileActor::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
     }
 
     Destroy();
+}
+
+void AProjectileActor::InitHoming(APawn* InTarget)
+{
+    Target = InTarget;
 }

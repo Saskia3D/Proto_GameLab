@@ -23,6 +23,8 @@ public:
 
     void FireProjectile();
 
+    APawn* FindTarget();
+
 
 protected:
     UPROPERTY(EditDefaultsOnly)

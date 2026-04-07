@@ -3,13 +3,14 @@
 
 #include "ProjectileBuff.h"
 #include "ProjectileActor.h"
+#include "EngineUtils.h"
 #include "GameFramework/Pawn.h"
 
 void UProjectileBuff::Activate(APawn* Player)
 {
     Super::Activate(Player);
 
-    RemainingShots = 3;
+    RemainingShots = 1;
 
     if (GEngine)
     {
@@ -49,9 +50,16 @@ void UProjectileBuff::FireProjectile()
         Params
     );
 
-    if (Projectile)
+    /*if (Projectile)
     {
         Projectile->InitDirection(Forward);
+    }*/
+
+    APawn* Target = FindTarget();
+
+    if (Projectile)
+    {
+        Projectile->InitHoming(Target);
     }
 
     RemainingShots--;
@@ -75,4 +83,30 @@ void UProjectileBuff::FireProjectile()
 
         OnBuffExpired();
     }
+}
+
+APawn* UProjectileBuff::FindTarget()
+{
+    UWorld* World = GetWorld();
+    if (!World) return nullptr;
+
+    APawn* ClosestPawn = nullptr;
+    float ClosestDist = FLT_MAX;
+
+    for (TActorIterator<APawn> It(World); It; ++It)
+    {
+        APawn* Pawn = *It;
+
+        if (Pawn == CachedPlayer) continue;
+
+        float Dist = FVector::Dist(Pawn->GetActorLocation(), CachedPlayer->GetActorLocation());
+
+        if (Dist < ClosestDist)
+        {
+            ClosestDist = Dist;
+            ClosestPawn = Pawn;
+        }
+    }
+
+    return ClosestPawn;
 }
