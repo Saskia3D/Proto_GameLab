@@ -450,22 +450,42 @@ void UVehicleSelectionWidget::OnPlayerTwoConfirmClicked()
 
 void UVehicleSelectionWidget::InitializeDefaultVehicleOptions()
 {
-	if (!VehicleOptions.IsEmpty())
+	auto HasVehicleOption = [this](const TCHAR* AssetPath)
 	{
-		return;
-	}
+		const FSoftObjectPath TargetPath(AssetPath);
 
-	auto AddDefaultVehicle = [this](const TCHAR* Name, const TCHAR* AssetPath)
+		for (const FVehicleSelectionOption& ExistingOption : VehicleOptions)
+		{
+			if (ExistingOption.VehiclePawnClass.ToSoftObjectPath() == TargetPath
+				|| ExistingOption.VehicleSourceAsset == TargetPath)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	};
+
+	auto AddDefaultVehicle = [this, &HasVehicleOption](const TCHAR* Name, const TCHAR* AssetPath)
 	{
+		if (HasVehicleOption(AssetPath))
+		{
+			return;
+		}
+
 		FVehicleSelectionOption& NewOption = VehicleOptions.AddDefaulted_GetRef();
 		NewOption.DisplayName = FText::FromString(Name);
 		NewOption.VehiclePawnClass = TSoftClassPtr<ASTR_RacerPawn>(FSoftObjectPath(AssetPath));
+		NewOption.VehicleSourceAsset = FSoftObjectPath(AssetPath);
 		NewOption.PreviewScale = FVector(1.0f, 1.0f, 1.0f);
 	};
 
 	AddDefaultVehicle(TEXT("CAR 1"), TEXT("/Game/Cars/Car1.Car1_C"));
 	AddDefaultVehicle(TEXT("CAR 2"), TEXT("/Game/Cars/Car2.Car2_C"));
 	AddDefaultVehicle(TEXT("CAR 3"), TEXT("/Game/Cars/Car3.Car3_C"));
+	AddDefaultVehicle(TEXT("CAR 4"), TEXT("/Game/Cars/Car4.Car4_C"));
+	AddDefaultVehicle(TEXT("CAR 5"), TEXT("/Game/Cars/Car5.Car5_C"));
+	AddDefaultVehicle(TEXT("CAR 6"), TEXT("/Game/Cars/Car6.Car6_C"));
 }
 void UVehicleSelectionWidget::CacheThemeFont()
 {
