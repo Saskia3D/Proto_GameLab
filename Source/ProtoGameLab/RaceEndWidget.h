@@ -65,6 +65,9 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, Category = "RaceEnd|Events")
 	void OnMainMenuActivated();
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "RaceEnd|Events")
+	void OnNewMapActivated();
+
 protected:
 	virtual void NativeConstruct() override;
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
@@ -96,6 +99,9 @@ protected:
 	UFUNCTION()
 	void OnMainMenuClicked();
 
+	UFUNCTION()
+	void OnTryNewMapClicked();
+
 private:
 	UPROPERTY(Transient)
 	TObjectPtr<UWidget> RuntimeMenuChromeWidget = nullptr;
@@ -119,10 +125,16 @@ private:
 	TObjectPtr<UButton> RuntimeMainMenuButton = nullptr;
 
 	UPROPERTY(Transient)
+	TObjectPtr<UButton> RuntimeNewMapButton = nullptr;
+
+	UPROPERTY(Transient)
 	TObjectPtr<UTextBlock> RuntimeRestartLabel = nullptr;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UTextBlock> RuntimeMainMenuLabel = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> RuntimeNewMapLabel = nullptr;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UObject> LoadedThemeFontObject = nullptr;
