@@ -175,15 +175,24 @@ void ASTR_RacerPawn::BeginPlay()
 {
 	Super::BeginPlay();
 
-	TrackSplineActor = ResolveTrackSplineActor();
+	TArray<AActor*> FoundTracks;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ATrackSplineActor::StaticClass(), FoundTracks);
+
+	for (AActor* Actor : FoundTracks)
+	{
+		if (ATrackSplineActor* Track = Cast<ATrackSplineActor>(Actor))
+		{
+			CachedTracks.Add(Track);
+		}
+	}
+
+	if (CachedTracks.Num() == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[TRACK] No tracks found for %s"), *GetName());
+	}
 
 	InitializeHeightLock();
 	EnforceTrackHeight(true);
-
-	if (!TrackSplineActor)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[OFF TRACK] No TrackSplineActor found for %s"), *GetName());
-	}
 
 	BoxComp->OnComponentHit.AddDynamic(this, &ASTR_RacerPawn::OnHit);
 	ApplySelectedVehicleMesh();
@@ -640,6 +649,19 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 	}
 
 	UpdateSafeRecoveryPoint();
+
+	ATrackSplineActor* NewTrack = ResolveTrackSplineActor();
+
+	if (NewTrack && NewTrack != CurrentMinimapTrack)
+	{
+		CurrentMinimapTrack = NewTrack;
+
+		if (MinimapWidget)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[MINIMAP] Track changed to %s"), *GetNameSafe(NewTrack));
+			MinimapWidget->SetTrackSplineActor(NewTrack);
+		}
+	}
 }
 
 void ASTR_RacerPawn::UpdateOffTrackState(float DeltaTime)
@@ -1648,45 +1670,28 @@ float ASTR_RacerPawn::GetPostDriftSteeringInput(float RawSteeringInput) const
 
 ATrackSplineActor* ASTR_RacerPawn::ResolveTrackSplineActor()
 {
-	if (TrackSplineActor)
+	if (CachedTracks.Num() == 0)
 	{
-		return TrackSplineActor;
+		return nullptr;
 	}
 
-	if (UWorld* World = GetWorld())
+	ATrackSplineActor* ClosestTrack = nullptr;
+	float BestDistance = BIG_NUMBER;
+
+	for (ATrackSplineActor* Track : CachedTracks)
 	{
-		if (ARaceGameMode* GM = Cast<ARaceGameMode>(UGameplayStatics::GetGameMode(World)))
+		if (!Track) continue;
+
+		const float Dist = Track->GetDistanceFromTrackCenter2D(GetActorLocation());
+
+		if (Dist < BestDistance)
 		{
-			TrackSplineActor = GM->GetRaceTrackSplineActor();
-			if (TrackSplineActor)
-			{
-				UE_LOG(LogTemp, Warning, TEXT("[TRACK] %s got track from GameMode: %s"),
-					*GetName(), *GetNameSafe(TrackSplineActor));
-				return TrackSplineActor;
-			}
+			BestDistance = Dist;
+			ClosestTrack = Track;
 		}
-
-		TArray<AActor*> FoundTracks;
-		UGameplayStatics::GetAllActorsOfClass(World, ATrackSplineActor::StaticClass(), FoundTracks);
-
-		for (AActor* Actor : FoundTracks)
-		{
-			if (Actor && Actor->ActorHasTag(TEXT("MainRaceTrack")))
-			{
-				TrackSplineActor = Cast<ATrackSplineActor>(Actor);
-
-				UE_LOG(LogTemp, Warning, TEXT("[TRACK] %s got track from tag MainRaceTrack: %s"),
-					*GetName(), *GetNameSafe(TrackSplineActor));
-
-				return TrackSplineActor;
-			}
-		}
-
-		UE_LOG(LogTemp, Warning, TEXT("[TRACK] %s failed to resolve TrackSplineActor | Found=%d"),
-			*GetName(), FoundTracks.Num());
 	}
 
-	return nullptr;
+	return ClosestTrack;
 }
 
 int32 ASTR_RacerPawn::GetLocalPlayerIndex() const

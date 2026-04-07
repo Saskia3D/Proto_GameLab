@@ -490,11 +490,17 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
 	float RecoverySpeedAfterTeleport = 350.f;
 
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Track|OffTrack")
-	TObjectPtr<ATrackSplineActor> TrackSplineActor = nullptr;
+	/*UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Track|OffTrack")
+	TObjectPtr<ATrackSplineActor> TrackSplineActor = nullptr;*/
+
+	UPROPERTY()
+	TArray<TObjectPtr<ATrackSplineActor>> CachedTracks;
 
 	UPROPERTY(Transient)
 	TObjectPtr<URaceMinimapWidget> MinimapWidget = nullptr;
+
+	UPROPERTY()
+	ATrackSplineActor* CurrentMinimapTrack = nullptr;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|Recovery")
 	bool bHasSafeRecoveryPoint = false;
