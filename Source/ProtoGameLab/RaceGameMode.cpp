@@ -11,6 +11,8 @@
 #include "TrackSplineActor.h"
 #include "Components/SplineComponent.h"
 #include "FinishLine.h"
+#include "NiagaraFunctionLibrary.h"
+#include "DrawDebugHelpers.h"
 #include "TimerManager.h"
 #include "TrackManager.h"
 
@@ -353,6 +355,24 @@ void ARaceGameMode::NotifyPlayerFinished(AActor* PlayerActor)
 	NewEntry.Controller = Controller;
 	NewEntry.FinishTime = GetRaceTimeSeconds();
 	FinishOrder.Add(NewEntry);
+
+	if (FinishOrder.Num() == 1 && WinnerConfettiEffect && PlayerActor && PlayerActor->GetRootComponent())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[CONFETTI] Spawning attached on %s"), *GetNameSafe(PlayerActor));
+
+		UNiagaraFunctionLibrary::SpawnSystemAttached(
+			WinnerConfettiEffect,
+			PlayerActor->GetRootComponent(),
+			NAME_None,
+			FVector(0.f, 0.f, 300.f),
+			FRotator::ZeroRotator,
+			EAttachLocation::KeepRelativeOffset,
+			true,
+			true,
+			ENCPoolMethod::None,
+			true
+		);
+	}
 
 	const int32 FinalScore = GetPlayerScore(Controller);
 
