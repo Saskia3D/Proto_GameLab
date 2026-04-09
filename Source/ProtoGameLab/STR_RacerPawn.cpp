@@ -280,7 +280,7 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 	float EffectiveAccelerationRate = AccelerationRate;
 	float EffectiveBrakingDeceleration = BrakingDeceleration;
 	float EffectiveCoastingDeceleration = CoastingDeceleration;
-	float EffectiveMaxSpeed = MaxSpeed + CurrentBoostExtraSpeed;
+	float EffectiveMaxSpeed = (MaxSpeed * ProjectileSlowMultiplier) + CurrentBoostExtraSpeed;
 	float ExtraOffTrackDeceleration = 0.f;
 
 	if (bOffTrackPenaltyActive)
@@ -1710,4 +1710,23 @@ int32 ASTR_RacerPawn::GetLocalPlayerIndex() const
 	}
 
 	return LP->GetControllerId();
+}
+
+void ASTR_RacerPawn::ApplyProjectileSlow(float InSlowMultiplier)
+{
+	ProjectileSlowMultiplier = FMath::Clamp(InSlowMultiplier, 0.05f, 1.f);
+	bProjectileSlowActive = true;
+
+	UE_LOG(LogTemp, Warning, TEXT("[PROJECTILE SLOW] Applied on %s | Mult=%.2f"),
+		*GetName(),
+		ProjectileSlowMultiplier);
+}
+
+void ASTR_RacerPawn::ClearProjectileSlow()
+{
+	ProjectileSlowMultiplier = 1.f;
+	bProjectileSlowActive = false;
+
+	UE_LOG(LogTemp, Warning, TEXT("[PROJECTILE SLOW] Cleared on %s"),
+		*GetName());
 }

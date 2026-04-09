@@ -302,6 +302,12 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Track|Audio")
 	void OnOffTrackStateChanged(bool bNowOffTrack, int32 PlayerIndex);
 
+	UFUNCTION(BlueprintCallable, Category = "Movement|Debuff")
+	void ApplyProjectileSlow(float InSlowMultiplier);
+
+	UFUNCTION(BlueprintCallable, Category = "Movement|Debuff")
+	void ClearProjectileSlow();
+
 protected:
 	float CurrentSpeed = 0.f;
 	float TargetSteeringInput = 0.f;
@@ -489,6 +495,12 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
 	float RecoverySpeedAfterTeleport = 350.f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|Debuff")
+	float ProjectileSlowMultiplier = 1.f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|Debuff")
+	bool bProjectileSlowActive = false;
 
 	/*UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Track|OffTrack")
 	TObjectPtr<ATrackSplineActor> TrackSplineActor = nullptr;*/
