@@ -56,26 +56,41 @@ void AProjectileActor::Tick(float DeltaTime)
 }
 
 void AProjectileActor::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
-    UPrimitiveComponent* OtherComp, FVector NormalImpulse,
-    const FHitResult& Hit)
+	UPrimitiveComponent* OtherComp, FVector NormalImpulse,
+	const FHitResult& Hit)
 {
-    ASTR_RacerPawn* HitPlayer = Cast<ASTR_RacerPawn>(OtherActor);
+	ASTR_RacerPawn* HitPlayer = Cast<ASTR_RacerPawn>(OtherActor);
 
-    if (HitPlayer)
-    {
-        HitPlayer->MaxSpeed *= SlowMultiplier;
+	if (HitPlayer)
+	{
+		const float LocalSlowMultiplier = SlowMultiplier;
+		TWeakObjectPtr<ASTR_RacerPawn> WeakHitPlayer = HitPlayer;
 
-        FTimerHandle Timer;
-        GetWorld()->GetTimerManager().SetTimer(Timer, [HitPlayer, this]()
-            {
-                if (HitPlayer)
-                {
-                    HitPlayer->MaxSpeed /= SlowMultiplier;
-                }
-            }, SlowDuration, false);
-    }
+		HitPlayer->ApplyProjectileSlow(LocalSlowMultiplier);
 
-    Destroy();
+		UE_LOG(LogTemp, Warning, TEXT("[PROJECTILE] HIT %s | SlowMultiplier=%.2f"),
+			*GetNameSafe(HitPlayer),
+			LocalSlowMultiplier);
+
+		FTimerHandle Timer;
+		GetWorld()->GetTimerManager().SetTimer(
+			Timer,
+			[WeakHitPlayer]()
+			{
+				if (ASTR_RacerPawn* Player = WeakHitPlayer.Get())
+				{
+					Player->ClearProjectileSlow();
+
+					UE_LOG(LogTemp, Warning, TEXT("[PROJECTILE] RESTORE %s"),
+						*GetNameSafe(Player));
+				}
+			},
+			SlowDuration,
+			false
+		);
+	}
+
+	Destroy();
 }
 
 void AProjectileActor::InitHoming(APawn* InTarget)
