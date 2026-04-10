@@ -1,5 +1,7 @@
 #pragma once
 
+#include "NiagaraComponent.h"
+#include "NiagaraSystem.h"
 #include "CoreMinimal.h"
 #include "BuffBase.h"
 #include "IgnoreObstacleBuff.generated.h"
@@ -19,6 +21,15 @@ public:
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Audio")
 	void OnIgnoreObstacleExpired();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "VFX")
+	void OnIgnoreObstacleVFXActivated();
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "VFX")
+	UNiagaraSystem* IgnoreObstacleEffect;
+
+	UPROPERTY()
+	UNiagaraComponent* ActiveEffect;
 
 protected:
 	virtual void OnBuffExpired() override;

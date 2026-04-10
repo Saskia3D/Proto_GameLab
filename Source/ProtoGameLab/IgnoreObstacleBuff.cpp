@@ -3,6 +3,7 @@
 #include "Components/BoxComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "STR_RacerPawn.h"
+#include "NiagaraFunctionLibrary.h"
 
 void UIgnoreObstacleBuff::Activate(APawn* Player)
 {
@@ -48,6 +49,18 @@ void UIgnoreObstacleBuff::Activate(APawn* Player)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Blue, TEXT("Ignore obstacle activated!"));
 	}
+	if (IgnoreObstacleEffect && Racer)
+	{
+		ActiveEffect = UNiagaraFunctionLibrary::SpawnSystemAttached(
+			IgnoreObstacleEffect,
+			Racer->GetRootComponent(), // attaché à la voiture
+			NAME_None,
+			FVector::ZeroVector,
+			FRotator::ZeroRotator,
+			EAttachLocation::SnapToTarget,
+			true // auto destroy ?
+		);
+	}
 
 	UE_LOG(LogTemp, Warning, TEXT("[BUFF] IgnoreObstacle activated on %s | IgnoredActors=%d"), *GetNameSafe(Player), IgnoredActors.Num());
 
@@ -80,6 +93,11 @@ void UIgnoreObstacleBuff::OnBuffExpired()
 	if (GEngine)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Blue, TEXT("Ignore obstacle expired!"));
+	}
+	if (ActiveEffect)
+	{
+		ActiveEffect->Deactivate();
+		ActiveEffect = nullptr;
 	}
 
 	UE_LOG(LogTemp, Warning, TEXT("[BUFF] IgnoreObstacle expired on %s"), *GetNameSafe(CachedPlayer));

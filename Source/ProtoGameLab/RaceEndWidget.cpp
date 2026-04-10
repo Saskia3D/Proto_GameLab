@@ -221,9 +221,10 @@ FReply URaceEndWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEv
 	{
 		if (IsNextActionKey(Key))
 		{
-			if (SelectedActionIndex != 1)
+			const int32 NewIndex = FMath::Min(SelectedActionIndex + 1, 2);
+			if (NewIndex != SelectedActionIndex)
 			{
-				SelectedActionIndex = 1;
+				SelectedActionIndex = NewIndex;
 				ApplyActionSelectionVisuals();
 				OnActionSelectionChanged(SelectedActionIndex);
 			}
@@ -232,9 +233,10 @@ FReply URaceEndWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEv
 
 		if (IsPreviousActionKey(Key))
 		{
-			if (SelectedActionIndex != 0)
+			const int32 NewIndex = FMath::Max(SelectedActionIndex - 1, 0);
+			if (NewIndex != SelectedActionIndex)
 			{
-				SelectedActionIndex = 0;
+				SelectedActionIndex = NewIndex;
 				ApplyActionSelectionVisuals();
 				OnActionSelectionChanged(SelectedActionIndex);
 			}
@@ -243,13 +245,22 @@ FReply URaceEndWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEv
 
 		if (IsAcceptKey(Key))
 		{
-			if (SelectedActionIndex == 0)
+			switch (SelectedActionIndex)
 			{
+			case 0:
 				OnRestartClicked();
-			}
-			else
-			{
+				break;
+
+			case 1:
 				OnMainMenuClicked();
+				break;
+
+			case 2:
+				OnTryNewMapClicked();
+				break;
+
+			default:
+				break;
 			}
 
 			return FReply::Handled();
@@ -303,6 +314,25 @@ void URaceEndWidget::OnMainMenuClicked()
 	OpenLevelWithCleanInput(FName("MainMenu"), false);
 }
 
+void URaceEndWidget::OnTryNewMapClicked()
+{
+	OnNewMapActivated();
+
+	FName RestartLevel = FName("Map_Lineaire");
+
+	if (const UWorld* World = GetWorld())
+	{
+		if (const UProtoGameLabGameInstance* GameInstance = Cast<UProtoGameLabGameInstance>(World->GetGameInstance()))
+		{
+			if (!GameInstance->GetLastRaceMapName().IsNone())
+			{
+				RestartLevel = GameInstance->GetLastRaceMapName();
+			}
+		}
+	}
+
+	OpenLevelWithCleanInput(RestartLevel, true);
+}
 void URaceEndWidget::LoadLeaderboardEntries()
 {
 	LeaderboardEntries.Reset();
@@ -429,8 +459,10 @@ void URaceEndWidget::BuildRuntimeMenuChrome()
 	ContinuePromptText = nullptr;
 	RuntimeRestartButton = nullptr;
 	RuntimeMainMenuButton = nullptr;
+	RuntimeNewMapButton = nullptr;
 	RuntimeRestartLabel = nullptr;
 	RuntimeMainMenuLabel = nullptr;
+	RuntimeNewMapLabel = nullptr;
 
 	UCanvasPanel* CanvasHost = ResolveCanvasHost();
 	if (!CanvasHost)
@@ -508,7 +540,18 @@ void URaceEndWidget::BuildRuntimeMenuChrome()
 	{
 		MainMenuSlot->SetHorizontalAlignment(HAlign_Center);
 	}
+	//Option d'essayer la map linéaire
+	RuntimeNewMapButton = CreateInvisibleButton(WidgetTree, TEXT("RuntimeNewMapButton"));
+	RuntimeNewMapButton->OnClicked.AddDynamic(this, &URaceEndWidget::OnTryNewMapClicked);
+	RuntimeNewMapLabel = CreateTextBlock(WidgetTree, TEXT("RuntimeNewMaptLabel"), TEXT("TRY THIS BETA MAP"), MakeThemeFont(40), DefaultTextColor, ETextJustify::Center);
+	RuntimeNewMapButton->AddChild(RuntimeNewMapLabel);
 
+	if (UVerticalBoxSlot* NewMapSlot = ActionPageWidget->AddChildToVerticalBox(RuntimeNewMapButton))
+	{
+		NewMapSlot->SetHorizontalAlignment(HAlign_Center);
+		NewMapSlot->SetPadding(FMargin(0.f, 0.f, 0.f, 16.f));
+	}
+	// Centrage de l'ensemble du bloc d'actions dans l'overlay
 	if (UOverlaySlot* ActionSlot = RootOverlay->AddChildToOverlay(ActionPageWidget))
 	{
 		ActionSlot->SetHorizontalAlignment(HAlign_Center);
@@ -775,6 +818,10 @@ void URaceEndWidget::ApplyActionSelectionVisuals()
 	if (RuntimeMainMenuLabel)
 	{
 		RuntimeMainMenuLabel->SetColorAndOpacity(FSlateColor(SelectedActionIndex == 1 ? PlayerHighlightColor : DefaultTextColor));
+	}
+	if (RuntimeNewMapLabel)
+	{
+		RuntimeNewMapLabel->SetColorAndOpacity(FSlateColor(SelectedActionIndex == 2 ? PlayerHighlightColor : DefaultTextColor));
 	}
 }
 
