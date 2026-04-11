@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "BuffBase.h"
+#include "NiagaraComponent.h"
+#include "NiagaraSystem.h"
 #include "TimeStopBuff.generated.h"
 
 class AActor;
@@ -19,6 +21,12 @@ class PROTOGAMELAB_API UTimeStopBuff : public UBuffBase
 public:
 	virtual void Activate(APawn* Player) override;
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "Audio")
+	void OnTimeStopActivated();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Audio")
+	void OnTimeStopExpired();
+
 protected:
 	virtual void OnBuffExpired() override;
 
@@ -31,4 +39,13 @@ private:
 
 	void ApplyTimeStop();
 	void RestoreTimeStop();
+
+	UPROPERTY(EditDefaultsOnly, Category = "TimeStop|VFX")
+	UNiagaraSystem* TimeStopFX;
+
+	UPROPERTY()
+	UNiagaraComponent* ActiveTimeStopFX;
+
+	UPROPERTY()
+	TMap<TWeakObjectPtr<AActor>, UNiagaraComponent*> ActiveFXMap;
 };

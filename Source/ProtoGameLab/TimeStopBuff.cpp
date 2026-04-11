@@ -2,6 +2,7 @@
 
 #include "TimeStopBuff.h"
 #include "MyVehiclePawn.h"
+#include "NiagaraFunctionLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
 
@@ -12,6 +13,8 @@ void UTimeStopBuff::Activate(APawn* Player)
 	CachedPlayer = Player;
 
 	ApplyTimeStop();
+
+	OnTimeStopActivated();
 
 	if (GEngine)
 	{
@@ -48,7 +51,22 @@ void UTimeStopBuff::ApplyTimeStop()
 		if (!A || A == CachedPlayer) continue;
 
 		SavedDilations.Add(A, A->CustomTimeDilation);
-		A->CustomTimeDilation = 0.0f;
+		A->CustomTimeDilation = 0.001f;
+
+		if (TimeStopFX)
+		{
+			UNiagaraComponent* FX = UNiagaraFunctionLibrary::SpawnSystemAttached(
+				TimeStopFX,
+				A->GetRootComponent(),
+				NAME_None,
+				FVector::ZeroVector,
+				FRotator::ZeroRotator,
+				EAttachLocation::KeepRelativeOffset,
+				true
+			);
+
+			ActiveFXMap.Add(A, FX);
+		}
 	}
 
 	//Geler les obstacles
@@ -61,14 +79,22 @@ void UTimeStopBuff::ApplyTimeStop()
 
 		if(SavedDilations.Contains(A)) continue;
 
+		if (A->CustomTimeDilation <= 0.001f)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[TS] Skipping already frozen affectable: %s"), *GetNameSafe(A));
+			continue;
+		}
+
 		SavedDilations.Add(A, A->CustomTimeDilation);
-		A->CustomTimeDilation = 0.0f;
+		A->CustomTimeDilation = 0.001f;
 	}
 }
 
 void UTimeStopBuff::OnBuffExpired()
 {
 	RestoreTimeStop();
+
+	OnTimeStopExpired();
 
 	if (GEngine)
 	{
@@ -87,8 +113,28 @@ void UTimeStopBuff::RestoreTimeStop()
 		AActor* A = Pair.Key.Get();
 		if(!A) continue;
 
-		A->CustomTimeDilation = Pair.Value;
+		float RestoredValue = Pair.Value;
+
+		if (FMath::IsNearlyZero(RestoredValue))
+		{
+			RestoredValue = 1.0f;
+		}
+
+		A->CustomTimeDilation = RestoredValue;
+
+		UE_LOG(LogTemp, Warning, TEXT("[TS] Restored %s to %f"),
+			*GetNameSafe(A), RestoredValue);
 	}
+
+	for (auto& Pair : ActiveFXMap)
+	{
+		if (UNiagaraComponent* FX = Pair.Value)
+		{
+			FX->Deactivate();
+		}
+	}
+
+	ActiveFXMap.Empty();
 
 	SavedDilations.Empty();
 }

@@ -1,102 +1,315 @@
-/// TrackSplineActor.cpp
-
 #include "TrackSplineActor.h"
 #include "Components/SplineComponent.h"
 #include "Components/SplineMeshComponent.h"
+#include "Engine/StaticMesh.h"
+#include "FinishLine.h"
+#include "Components/ArrowComponent.h"
+#include "Kismet/GameplayStatics.h"
+ 
 
-// Sets default values
+
+
 ATrackSplineActor::ATrackSplineActor()
 {
-	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
 
 	Spline = CreateDefaultSubobject<USplineComponent>(TEXT("Spline"));
 	SetRootComponent(Spline);
 
 	Spline->SetMobility(EComponentMobility::Movable);
-	Spline->SetClosedLoop(true);
+	Spline->SetClosedLoop(bClosedLoop);
 }
 
-#if WITH_EDITOR
+//#if WITH_EDITOR
 void ATrackSplineActor::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
-	UE_LOG(LogTemp, Warning, TEXT("TrackSplineActor OnConstruction called"));
 
-	Spline->SetClosedLoop(bClosedLoop);
+	if (Spline)
+	{
+		Spline->SetClosedLoop(bClosedLoop);
+	}
 
-	Spline->UpdateSpline();
-
-	ClearGenerated();
-	BuildRoad();
-}
+#if WITH_EDITOR
+	if (!bAutoRebuildInEditor)
+	{
+		return;
+	}
 #endif
+
+	RebuildTrack();
+}
+//#endif
 
 void ATrackSplineActor::ClearGenerated()
 {
-	for (USplineMeshComponent* C : RoadSegments)
+	TArray<USceneComponent*> AttachedComponents;
+	Spline->GetChildrenComponents(true, AttachedComponents);
+
+	for (USceneComponent* Child : AttachedComponents)
 	{
-		if (C) C->DestroyComponent();
+		// Only destroy it if it's a Spline Mesh we created
+		if (USplineMeshComponent* MeshChild = Cast<USplineMeshComponent>(Child))
+		{
+			MeshChild->DestroyComponent();
+		}
 	}
+
 	RoadSegments.Reset();
+	SpriteSegments.Reset();
 }
 
 void ATrackSplineActor::BuildRoad()
 {
-	if (!RoadMesh || !Spline) return;
+	if (!Spline || !RoadMesh) return;
 
-	const int32 NumPoints = Spline->GetNumberOfSplinePoints();
-	if (NumPoints < 2) return;
+	float SplineLength = Spline->GetSplineLength();
+	float CurrentDistance = 0.f;
 
-	auto MakeSeg = [&](int32 A, int32 B)
+	while (CurrentDistance < SplineLength)
+	{
+		float NextDistance = FMath::Min(CurrentDistance + TileLength, SplineLength);
+
+		FVector StartPos = Spline->GetLocationAtDistanceAlongSpline(CurrentDistance, ESplineCoordinateSpace::Local);
+		FVector EndPos = Spline->GetLocationAtDistanceAlongSpline(NextDistance, ESplineCoordinateSpace::Local);
+
+		FVector StartTan = Spline->GetDirectionAtDistanceAlongSpline(CurrentDistance, ESplineCoordinateSpace::Local) * TileLength;
+		FVector EndTan = Spline->GetDirectionAtDistanceAlongSpline(NextDistance, ESplineCoordinateSpace::Local) * TileLength;
+
+		// Road base
+		USplineMeshComponent* RoadSeg = NewObject<USplineMeshComponent>(this);
+		//RoadSeg->SetFlags(RF_Transactional);
+		RoadSeg->SetMobility(EComponentMobility::Movable);
+		RoadSeg->RegisterComponentWithWorld(GetWorld());
+		RoadSeg->AttachToComponent(Spline, FAttachmentTransformRules::KeepRelativeTransform);
+		RoadSeg->SetStaticMesh(RoadMesh);
+		if (RoadMaterial) RoadSeg->SetMaterial(0, RoadMaterial);
+		RoadSeg->SetStartAndEnd(StartPos, StartTan, EndPos, EndTan, true);
+		RoadSeg->SetStartScale(FVector2D(RoadWidthScale, 0.05f));
+		RoadSeg->SetEndScale(FVector2D(RoadWidthScale, 0.05f));
+		RoadSeg->SetForwardAxis(ESplineMeshAxis::Y);
+		RoadSeg->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		RoadSeg->SetGenerateOverlapEvents(false);
+		RoadSegments.Add(RoadSeg);
+
+		// Sprite top
+		if (SpriteMesh)
 		{
-			USplineMeshComponent* Seg = NewObject<USplineMeshComponent>(this);
-			Seg->SetMobility(EComponentMobility::Movable);
-			Seg->SetStartScale(FVector2D(6.f, 0.05f));
-			Seg->SetEndScale(FVector2D(6.f, 0.05f));
-			Seg->RegisterComponentWithWorld(GetWorld());
-			Seg->AttachToComponent(Spline, FAttachmentTransformRules::KeepRelativeTransform);
+			USplineMeshComponent* SpriteSeg = NewObject<USplineMeshComponent>(this);
+			SpriteSeg->SetMobility(EComponentMobility::Movable);
+			SpriteSeg->TranslucencySortPriority = 1;
+			SpriteSeg->RegisterComponentWithWorld(GetWorld());
+			SpriteSeg->AttachToComponent(Spline, FAttachmentTransformRules::KeepRelativeTransform);
+			SpriteSeg->SetStaticMesh(SpriteMesh);
+			SpriteSeg->SetRelativeRotation(FRotator(0.f, 0.f, 0.f));
+			if (SpriteMaterial) SpriteSeg->SetMaterial(0, SpriteMaterial);
 
-			Seg->SetStaticMesh(RoadMesh);
-			if (RoadMaterial) Seg->SetMaterial(0, RoadMaterial);
+			FVector SpriteStart = StartPos + FVector(0, 0, SpriteHeightOffset);
+			FVector SpriteEnd = EndPos + FVector(0, 0, SpriteHeightOffset);
+			float SpriteWidth = RoadWidthScale * 0.4f;
 
-			const FVector StartPos = Spline->GetLocationAtSplinePoint(A, ESplineCoordinateSpace::Local);
-			const FVector StartTan = Spline->GetTangentAtSplinePoint(A, ESplineCoordinateSpace::Local);
-			const FVector EndPos = Spline->GetLocationAtSplinePoint(B, ESplineCoordinateSpace::Local);
-			const FVector EndTan = Spline->GetTangentAtSplinePoint(B, ESplineCoordinateSpace::Local);
+			SpriteSeg->SetStartAndEnd(SpriteStart, StartTan, SpriteEnd, EndTan, true);
+			SpriteSeg->SetStartScale(FVector2D(SpriteWidth, 0.05f));
+			SpriteSeg->SetEndScale(FVector2D(SpriteWidth, 0.05f));
+			SpriteSeg->SetForwardAxis(ESplineMeshAxis::Y);
+			SpriteSeg->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			SpriteSegments.Add(SpriteSeg);
+		}
 
-			Seg->SetStartAndEnd(StartPos, StartTan, EndPos, EndTan, true);
-			Seg->SetForwardAxis(ESplineMeshAxis::X);
-
-			Seg->SetCollisionEnabled(bCollisionEnabled ? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision);
-			Seg->SetCollisionProfileName(TEXT("BlockAll"));
-
-			Seg->SetStartScale(FVector2D(RoadWidthScale, 0.05f));
-			Seg->SetEndScale(FVector2D(RoadWidthScale, 0.05f));
-
-			RoadSegments.Add(Seg);
-		};
-
-	for (int32 i = 0; i < NumPoints - 1; ++i)
-	{
-		MakeSeg(i, i + 1);
-	}
-
-	if (bClosedLoop)
-	{
-		MakeSeg(NumPoints - 1, 0);
+		CurrentDistance = NextDistance;
+		if (TileLength <= 0.f) break;
 	}
 }
+#if WITH_EDITOR
+void ATrackSplineActor::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
 
-// Called when the game starts or when spawned
+	ClearGenerated();
+	ClearFinishLine();
+	BuildRoad();
+	BuildFinishLine();
+}
+#endif
+
 void ATrackSplineActor::BeginPlay()
 {
 	Super::BeginPlay();
+
+	ClearFinishLine();
+	ClearGenerated();
+	BuildRoad();
+	BuildFinishLine();
 }
 
-// Called every frame
 void ATrackSplineActor::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 }
 
+float ATrackSplineActor::GetTrackHalfWidthWorld() const
+{
+	if (!RoadMesh)
+	{
+		return 0.f;
+	}
+
+	const FBoxSphereBounds MeshBounds = RoadMesh->GetBounds();
+	const FVector ActorScale = GetActorScale3D().GetAbs();
+	const float ScaleXY = FMath::Max(ActorScale.X, ActorScale.Y);
+
+	// On suppose que la largeur utile de la route correspond à l'axe X du mesh.
+	return MeshBounds.BoxExtent.X * RoadWidthScale * ScaleXY;
+}
+
+float ATrackSplineActor::GetDistanceFromTrackCenter2D(const FVector& WorldLocation) const
+{
+	if (!Spline)
+	{
+		return BIG_NUMBER;
+	}
+
+	const FVector ClosestLocation = Spline->FindLocationClosestToWorldLocation(
+		WorldLocation,
+		ESplineCoordinateSpace::World
+	);
+
+	return FVector::Dist2D(WorldLocation, ClosestLocation);
+}
+
+bool ATrackSplineActor::IsLocationOnTrack(const FVector& WorldLocation, float ExtraMargin) const
+{
+	const float HalfWidth = GetTrackHalfWidthWorld();
+
+	if (HalfWidth <= 0.f)
+	{
+		return false;
+	}
+
+	const float DistanceToCenter = GetDistanceFromTrackCenter2D(WorldLocation);
+	return DistanceToCenter <= (HalfWidth + ExtraMargin);
+}
+
+float ATrackSplineActor::GetClosestDistanceAlongSpline(const FVector& WorldLocation) const
+{
+	if (!Spline) return 0.f;
+
+	const FVector ClosestLocation = Spline->FindLocationClosestToWorldLocation(
+		WorldLocation,
+		ESplineCoordinateSpace::World
+	);
+
+	return Spline->GetDistanceAlongSplineAtLocation(
+		ClosestLocation,
+		ESplineCoordinateSpace::World
+	);
+}
+
+FVector ATrackSplineActor::GetClosestWorldLocationOnTrack(const FVector& WorldLocation) const
+{
+	if (!Spline)
+	{
+		return WorldLocation;
+	}
+
+	return Spline->FindLocationClosestToWorldLocation(
+		WorldLocation,
+		ESplineCoordinateSpace::World
+	);
+}
+
+float ATrackSplineActor::GetTrackZAtWorldLocation(const FVector& WorldLocation) const
+{
+	return GetClosestWorldLocationOnTrack(WorldLocation).Z;
+}
+
+FVector ATrackSplineActor::GetTrackForwardDirectionAtWorldLocation(const FVector& WorldLocation) const
+{
+	if (!Spline) return FVector::ForwardVector;
+
+	const float DistanceAlongSpline = GetClosestDistanceAlongSpline(WorldLocation);
+
+	const FVector TrackDirection = Spline->GetDirectionAtDistanceAlongSpline(
+		DistanceAlongSpline,
+		ESplineCoordinateSpace::World
+	);
+
+	return TrackDirection.GetSafeNormal2D();
+}
+void ATrackSplineActor::ClearFinishLine()
+{
+	if (SpawnedFinishLine)
+	{
+		SpawnedFinishLine->Destroy();
+		SpawnedFinishLine = nullptr;
+	}
+	if (GetWorld())
+	{
+		TArray<AActor*> FoundActors;
+		UGameplayStatics::GetAllActorsOfClass(GetWorld(), AFinishLine::StaticClass(), FoundActors);
+
+		for (AActor* Actor : FoundActors)
+		{
+			// Only destroy if THIS track spawned it
+			if (Actor && Actor->GetOwner() == this)
+			{
+				Actor->Destroy();
+			}
+		}
+	}
+}
+void ATrackSplineActor::BuildFinishLine()
+{
+	if (!Spline || !FinishLineClass)
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	const float SplineLength = Spline->GetSplineLength();
+	const float ClampedDistance = FMath::Clamp(FinishLineDistance, 0.0f, SplineLength);
+
+	const FVector WorldLocation = Spline->GetLocationAtDistanceAlongSpline(
+		ClampedDistance,
+		ESplineCoordinateSpace::World
+	);
+
+	FRotator WorldRotation = Spline->GetRotationAtDistanceAlongSpline(
+		ClampedDistance,
+		ESplineCoordinateSpace::World
+	);
+
+	WorldLocation;
+	FRotator SpawnRotation = WorldRotation;
+	SpawnRotation.Yaw += FinishLineYawOffset;
+
+	FVector SpawnLocation = WorldLocation;
+	SpawnLocation.Z += FinishLineZOffset;
+
+	SpawnedFinishLine = World->SpawnActor<AFinishLine>(
+		FinishLineClass,
+		SpawnLocation,
+		SpawnRotation
+	);
+
+	if (SpawnedFinishLine)
+	{
+		if (UArrowComponent* Arrow = SpawnedFinishLine->FindComponentByClass<UArrowComponent>())
+		{
+			Arrow->SetWorldRotation(SpawnRotation);
+		}
+	}
+}
+
+void ATrackSplineActor::RebuildTrack()
+{
+	ClearFinishLine();
+	ClearGenerated();
+	BuildRoad();
+	BuildFinishLine();
+}

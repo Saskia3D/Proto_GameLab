@@ -1,6 +1,7 @@
 // TrackManager.cpp
 
 #include "TrackManager.h"
+#include "Checkpoint.h"
 
 // Sets default values
 ATrackManager::ATrackManager()
@@ -14,7 +15,17 @@ ATrackManager::ATrackManager()
 void ATrackManager::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
+	for (int32 i = 0; i < Checkpoints.Num(); ++i)
+	{
+		if (Checkpoints[i])
+		{
+			Checkpoints[i]->CheckpointIndex = i;
+
+			UE_LOG(LogTemp, Warning, TEXT("TrackManager: %s assigned index %d"),
+				*GetNameSafe(Checkpoints[i]), i);
+		}
+	}
 }
 
 // Called every frame

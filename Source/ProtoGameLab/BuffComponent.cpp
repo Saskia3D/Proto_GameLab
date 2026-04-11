@@ -17,11 +17,37 @@ UBuffComponent::UBuffComponent()
 
 void UBuffComponent::AddBuff(TSubclassOf<UBuffBase> BuffClass)
 {
-    if (BuffClass && !CurrentBuff)
+    if (!BuffClass || CurrentBuff) return;
+
+    PendingBuffClass = BuffClass;
+
+    OnBuffChanged.Broadcast(); // trigger UI roulette
+}
+
+void UBuffComponent::ConfirmPendingBuff()
+{
+    if (!PendingBuffClass) return;
+
+    CurrentBuff = NewObject<UBuffBase>(this, PendingBuffClass);
+
+    PendingBuffClass = nullptr;
+
+    OnBuffChanged.Broadcast(); // update UI finale
+}
+
+UBuffBase* UBuffComponent::FindActiveBuffByClass(UClass* BuffClass) const
+{
+    if (!BuffClass) return nullptr;
+
+    for (UBuffBase* Buff : ActiveBuffs)
     {
-        CurrentBuff = NewObject<UBuffBase>(this, BuffClass);
-        UE_LOG(LogTemp, Warning, TEXT("Buff added: %s"), *BuffClass->GetName());
+        if (Buff && Buff->GetClass() == BuffClass)
+        {
+            return Buff;
+        }
     }
+
+    return nullptr;
 }
 
 void UBuffComponent::UseBuff()
@@ -29,10 +55,67 @@ void UBuffComponent::UseBuff()
     if (!CurrentBuff) return;
 
     APawn* OwnerPawn = Cast<APawn>(GetOwner());
-    if (OwnerPawn)
+    if (!OwnerPawn) return;
+
+    UClass* BuffClass = CurrentBuff->GetClass();
+
+    // si un buff du meme type est deja actif, on refresh juste sa duree
+    if (UBuffBase* ExistingBuff = FindActiveBuffByClass(BuffClass))
     {
-        CurrentBuff->Activate(OwnerPawn);
+        ExistingBuff->RefreshDuration();
+
+        UE_LOG(LogTemp, Warning, TEXT("[BUFF] Refreshed active buff instead of stacking: %s"),
+            *BuffClass->GetName());
+
+        CurrentBuff = nullptr;
+        return;
     }
 
+    UBuffBase* BuffToUse = CurrentBuff;
+
+    BuffToUse->Activate(OwnerPawn);
+
+    if (BuffToUse->IsActive())
+    {
+        ActiveBuffs.Add(BuffToUse);
+
+        UE_LOG(LogTemp, Warning, TEXT("[BUFF] Activated buff: %s | ActiveBuffs = %d"),
+            *GetNameSafe(BuffToUse),
+            ActiveBuffs.Num());
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("[BUFF] Buff activation failed: %s"),
+            *GetNameSafe(BuffToUse));
+    }
+
+    /*
+	if (OwnerPawn)
+	{
+		CurrentBuff->Activate(OwnerPawn);
+	}*/
+
     CurrentBuff = nullptr;
+
+    OnBuffChanged.Broadcast();
+}
+
+void UBuffComponent::NotifyBuffExpired(UBuffBase* ExpiredBuff)
+{
+    if (!ExpiredBuff) return;
+
+    ActiveBuffs.RemoveSingle(ExpiredBuff);
+
+    UE_LOG(LogTemp, Warning, TEXT("[BUFF] Removed expired buff: %s | ActiveBuffs = %d"),
+        *GetNameSafe(ExpiredBuff),
+        ActiveBuffs.Num());
+}
+
+UTexture2D* UBuffComponent::GetCurrentBuffIcon() const
+{
+    if (CurrentBuff)
+    {
+        return CurrentBuff->BuffIcon;
+    }
+    return nullptr;
 }

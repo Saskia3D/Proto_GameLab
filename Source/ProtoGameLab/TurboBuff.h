@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "BuffBase.h"
+#include "NiagaraComponent.h"
 #include "TurboBuff.generated.h"
 
 /**
@@ -17,6 +18,12 @@ class PROTOGAMELAB_API UTurboBuff : public UBuffBase
 public:
 	virtual void Activate(APawn* Player) override;
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "Audio")
+	void OnTurboActivated();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Audio")
+	void OnTurboExpired();
+
 protected:
 	virtual void OnBuffExpired() override;
 
@@ -28,4 +35,10 @@ private:
 
 	float OriginalMaxSpeed = 0.f;
 	TWeakObjectPtr<class ASTR_RacerPawn> CachedRacer;
+
+	UPROPERTY()
+	UNiagaraComponent* ActiveBoostFX_Left;
+
+	UPROPERTY()
+	UNiagaraComponent* ActiveBoostFX_Right;
 };
