@@ -49,6 +49,9 @@ public:
         const FHitResult& Hit);
 
     UPROPERTY()
+    APawn* OwnerPawn;
+
+    UPROPERTY()
     APawn* Target;
 
     UFUNCTION()

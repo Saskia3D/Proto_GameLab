@@ -18,16 +18,19 @@ AProjectileActor::AProjectileActor()
 
     CollisionComp->SetNotifyRigidBodyCollision(true);
     CollisionComp->OnComponentHit.AddDynamic(this, &AProjectileActor::OnHit);
+    CollisionComp->IgnoreActorWhenMoving(GetOwner(), true);
 }
 
 void AProjectileActor::BeginPlay()
 {
-    Super::BeginPlay();
+	Super::BeginPlay();
 
-    if (GetOwner())
-    {
-        CollisionComp->IgnoreActorWhenMoving(GetOwner(), true);
-    }
+	OwnerPawn = Cast<APawn>(GetOwner());
+
+	if (OwnerPawn)
+	{
+		CollisionComp->IgnoreActorWhenMoving(OwnerPawn, true);
+	}
 }
 
 void AProjectileActor::InitDirection(FVector Direction)
@@ -56,41 +59,35 @@ void AProjectileActor::Tick(float DeltaTime)
 }
 
 void AProjectileActor::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
-	UPrimitiveComponent* OtherComp, FVector NormalImpulse,
-	const FHitResult& Hit)
+    UPrimitiveComponent* OtherComp, FVector NormalImpulse,
+    const FHitResult& Hit)
 {
-	ASTR_RacerPawn* HitPlayer = Cast<ASTR_RacerPawn>(OtherActor);
+    // IGNORE LE PROPRIETAIRE
+    if (OtherActor == GetOwner() || OtherActor == OwnerPawn)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[PROJECTILE] Ignored owner hit"));
+        return;
+    }
 
-	if (HitPlayer)
-	{
-		const float LocalSlowMultiplier = SlowMultiplier;
-		TWeakObjectPtr<ASTR_RacerPawn> WeakHitPlayer = HitPlayer;
+    ASTR_RacerPawn* HitPlayer = Cast<ASTR_RacerPawn>(OtherActor);
 
-		HitPlayer->ApplyProjectileSlow(LocalSlowMultiplier);
+    if (HitPlayer)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[PROJECTILE] HIT PLAYER: %s"), *GetNameSafe(HitPlayer));
 
-		UE_LOG(LogTemp, Warning, TEXT("[PROJECTILE] HIT %s | SlowMultiplier=%.2f"),
-			*GetNameSafe(HitPlayer),
-			LocalSlowMultiplier);
+        HitPlayer->MaxSpeed *= SlowMultiplier;
 
-		FTimerHandle Timer;
-		GetWorld()->GetTimerManager().SetTimer(
-			Timer,
-			[WeakHitPlayer]()
-			{
-				if (ASTR_RacerPawn* Player = WeakHitPlayer.Get())
-				{
-					Player->ClearProjectileSlow();
+        FTimerHandle Timer;
+        GetWorld()->GetTimerManager().SetTimer(Timer, [HitPlayer, this]()
+            {
+                if (HitPlayer)
+                {
+                    HitPlayer->MaxSpeed /= SlowMultiplier;
+                }
+            }, SlowDuration, false);
+    }
 
-					UE_LOG(LogTemp, Warning, TEXT("[PROJECTILE] RESTORE %s"),
-						*GetNameSafe(Player));
-				}
-			},
-			SlowDuration,
-			false
-		);
-	}
-
-	Destroy();
+    Destroy();
 }
 
 void AProjectileActor::InitHoming(APawn* InTarget)
