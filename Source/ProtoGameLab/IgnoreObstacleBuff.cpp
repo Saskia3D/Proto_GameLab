@@ -53,14 +53,23 @@ void UIgnoreObstacleBuff::Activate(APawn* Player)
 	{
 		ActiveEffect = UNiagaraFunctionLibrary::SpawnSystemAttached(
 			IgnoreObstacleEffect,
-			Racer->GetRootComponent(), // attaché à la voiture
+			Racer->GetRootComponent(),
 			NAME_None,
 			FVector::ZeroVector,
 			FRotator::ZeroRotator,
 			EAttachLocation::SnapToTarget,
-			true // auto destroy ?
+			false // IMPORTANT: pas auto destroy
 		);
+
+		if (ActiveEffect)
+		{
+			ActiveEffect->SetAutoDestroy(false);
+			ActiveEffect->Activate(true);
+		}
 	}
+
+	// Event Blueprint (UI, sons, FX additionnels)
+	OnIgnoreObstacleVFXActivated();
 
 	UE_LOG(LogTemp, Warning, TEXT("[BUFF] IgnoreObstacle activated on %s | IgnoredActors=%d"), *GetNameSafe(Player), IgnoredActors.Num());
 
@@ -96,11 +105,12 @@ void UIgnoreObstacleBuff::OnBuffExpired()
 	}
 	if (ActiveEffect)
 	{
-		ActiveEffect->Deactivate();
+		ActiveEffect->DeactivateImmediate();
+		ActiveEffect->DestroyComponent();
 		ActiveEffect = nullptr;
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("[BUFF] IgnoreObstacle expired on %s"), *GetNameSafe(CachedPlayer));
+	UE_LOG(LogTemp, Warning, TEXT("[BUFF] IgnoreObstacle expired on %s"), *GetNameSafe(CachedRacer.Get()));
 
 	IgnoredActors.Reset();
 	CachedRacer.Reset();
