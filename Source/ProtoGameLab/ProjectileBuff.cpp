@@ -50,16 +50,17 @@ void UProjectileBuff::FireProjectile()
         Params
     );
 
-    /*if (Projectile)
-    {
-        Projectile->InitDirection(Forward);
-    }*/
-
     APawn* Target = FindTarget();
 
     if (Projectile)
     {
+        Projectile->SetOwner(CachedPlayer); // sécurité
+
+        // appelle une fonction propre dans le projectile
         Projectile->InitHoming(Target);
+
+        // nouvelle fonction qu'on va créer
+        Projectile->IgnoreOwnerPawn(CachedPlayer);
     }
 
     RemainingShots--;

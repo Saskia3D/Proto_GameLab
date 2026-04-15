@@ -183,6 +183,17 @@ public:
 	const FPlayerRaceProgress* GetPlayerProgress(AController* Controller) const; //Recupere toute la progression
 	TArray<FRaceLeaderboardEntry> BuildLeaderboardSnapshot() const;
 
+	void EndRace();
+	bool bFinishCountdownStarted = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Race|End")
+	bool bUseFinishCountdown = true;
+
+	FTimerHandle FinishCountdownHandle;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Race|End")
+	float FinishCountdownSeconds = 15.f;
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -202,12 +213,6 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Race|Score")
 	int32 PointsPerLap = 500; //Nombre de points par tour complete
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Race|End")
-	bool bUseFinishCountdown = true;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Race|End")
-	float FinishCountdownSeconds = 15.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Race|End")
 	float AllPlayersFinishedDelaySeconds = 4.5f;
@@ -249,13 +254,10 @@ private:
 	void FreezeFinishedPlayer(AActor* PlayerActor); // G�le le joueur qui a termin� la course pour �viter qu'il puisse continuer � jouer apr�s avoir fini
 	bool HasPlayerFinishedAlready(AActor* PlayerActor) const; // V�rifie si un joueur a d�j� termin� la course
 	bool bHasTriggeredEndMenu = false; // Indique si le menu de fin de course a d�j� �t� d�clench� pour �viter de le d�clencher plusieurs fois
-	bool bFinishCountdownStarted = false;
-	void EndRace();
 	void CacheLeaderboardForEndMenu();
 	void GatherRaceControllers(TArray<AController*>& OutControllers) const;
 	int32 FindFinishOrderIndex(AController* Controller) const;
 	float GetFinishTimeForController(AController* Controller) const;
-	FTimerHandle FinishCountdownHandle;
 	int32 CompareControllers(AController* A, AController* B) const; // Compare deux contr�leurs pour d�terminer leur ordre dans la course, en fonction de leur progression et de leur distance au prochain checkpoint
 	float ComputeDistanceToNextCheckpoint(APawn* Pawn, int32 LastCheckpoint) const; // Calcule la distance d'un joueur au prochain checkpoint, utilis�e pour d�terminer sa position relative dans la course
 };

@@ -7,6 +7,8 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
+#include "Engine/World.h"
+#include "TimerManager.h"
 #include "RaceGameMode.h"
 
 // Sets default values
@@ -150,7 +152,51 @@ void AFinishLine::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* Ot
 
 	FLapData& Data = LapByController.FindOrAdd(Controller);
 
-	if (!Data.bArmed)
+	/*if (!Data.bArmed)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[FINISH] RETURN: not armed (need ArmGate)"));
+		return;
+	}*/
+
+	// Si course linéaire déjà terminée pour ce joueur -> ignore
+
+	if (TotalLaps == 1 && Data.LapNumber >= 1)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[FINISH] Linear race already completed"));
+		return;
+	}
+
+	if (TotalLaps == 1)
+	{
+		GameMode->NotifyPlayerFinished(Pawn);
+		if (!GameMode->bFinishCountdownStarted && GameMode->bUseFinishCountdown)
+		{
+			GameMode->bFinishCountdownStarted = true;
+
+			UE_LOG(LogTemp, Warning, TEXT("[RACE END] Finish countdown started: %.2fs"), GameMode->FinishCountdownSeconds);
+
+			GetWorldTimerManager().SetTimer(
+				GameMode->FinishCountdownHandle,
+				GameMode,
+				&ARaceGameMode::EndRace,
+				GameMode->FinishCountdownSeconds,
+				false
+			);
+
+			if (GEngine)
+			{
+				const FString CountdownMsg = FString::Printf(
+					TEXT("Final countdown started! Race ends in %.0f seconds."),
+					GameMode->FinishCountdownSeconds
+				);
+				GEngine->AddOnScreenDebugMessage(-1, 4.f, FColor::Yellow, CountdownMsg);
+			}
+		}
+		GameMode->EndRace();
+		return;
+	}
+
+	if (TotalLaps > 1 && !Data.bArmed)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[FINISH] RETURN: not armed (need ArmGate)"));
 		return;
@@ -165,7 +211,11 @@ void AFinishLine::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* Ot
 
 	Data.LastCrossTime = Now;
 	Data.LapNumber++;
-	Data.bArmed = false;
+	
+	if (TotalLaps > 1)
+	{
+		Data.bArmed = false;
+	}
 
 	// A chaque lap, on appelle NotifyLapCompleted
 	if (GameMode)

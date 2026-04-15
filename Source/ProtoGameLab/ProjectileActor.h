@@ -56,4 +56,7 @@ public:
 
     UFUNCTION()
     void InitHoming(APawn* InTarget);
+
+    void IgnoreOwnerPawn(APawn* InOwner);
+
 };

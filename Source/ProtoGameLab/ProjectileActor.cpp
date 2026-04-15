@@ -18,7 +18,6 @@ AProjectileActor::AProjectileActor()
 
     CollisionComp->SetNotifyRigidBodyCollision(true);
     CollisionComp->OnComponentHit.AddDynamic(this, &AProjectileActor::OnHit);
-    CollisionComp->IgnoreActorWhenMoving(GetOwner(), true);
 }
 
 void AProjectileActor::BeginPlay()
@@ -93,4 +92,18 @@ void AProjectileActor::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 void AProjectileActor::InitHoming(APawn* InTarget)
 {
     Target = InTarget;
+}
+
+void AProjectileActor::IgnoreOwnerPawn(APawn* InOwner)
+{
+    if (!InOwner) return;
+
+    OwnerPawn = InOwner;
+
+    SetOwner(InOwner);
+
+    if (CollisionComp)
+    {
+        CollisionComp->IgnoreActorWhenMoving(InOwner, true);
+    }
 }

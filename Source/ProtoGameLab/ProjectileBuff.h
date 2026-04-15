@@ -25,11 +25,10 @@ public:
 
     APawn* FindTarget();
 
-
 protected:
     UPROPERTY(EditDefaultsOnly)
     TSubclassOf<AProjectileActor> ProjectileClass;
 
-    int32 RemainingShots = 3;
+    int32 RemainingShots;
 
 };
