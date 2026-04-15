@@ -192,7 +192,7 @@ void AFinishLine::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* Ot
 				GEngine->AddOnScreenDebugMessage(-1, 4.f, FColor::Yellow, CountdownMsg);
 			}
 		}
-		GameMode->EndRace();
+		//GameMode->EndRace();
 		return;
 	}
 
