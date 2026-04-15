@@ -317,20 +317,8 @@ void URaceEndWidget::OnMainMenuClicked()
 void URaceEndWidget::OnTryNewMapClicked()
 {
 	OnNewMapActivated();
-
+	//Always loading the new map
 	FName RestartLevel = FName("Map_Lineaire");
-
-	if (const UWorld* World = GetWorld())
-	{
-		if (const UProtoGameLabGameInstance* GameInstance = Cast<UProtoGameLabGameInstance>(World->GetGameInstance()))
-		{
-			if (!GameInstance->GetLastRaceMapName().IsNone())
-			{
-				RestartLevel = GameInstance->GetLastRaceMapName();
-			}
-		}
-	}
-
 	OpenLevelWithCleanInput(RestartLevel, true);
 }
 void URaceEndWidget::LoadLeaderboardEntries()
