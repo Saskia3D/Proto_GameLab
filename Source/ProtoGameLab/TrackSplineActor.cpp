@@ -149,17 +149,19 @@ void ATrackSplineActor::Tick(float DeltaTime)
 
 float ATrackSplineActor::GetTrackHalfWidthWorld() const
 {
-	if (!RoadMesh)
+	if (RoadMesh)
 	{
-		return 0.f;
+		const FBoxSphereBounds MeshBounds = RoadMesh->GetBounds();
+		const FVector ActorScale = GetActorScale3D().GetAbs();
+		const float ScaleXY = FMath::Max(ActorScale.X, ActorScale.Y);
+
+		return MeshBounds.BoxExtent.X * RoadWidthScale * ScaleXY;
 	}
 
-	const FBoxSphereBounds MeshBounds = RoadMesh->GetBounds();
-	const FVector ActorScale = GetActorScale3D().GetAbs();
-	const float ScaleXY = FMath::Max(ActorScale.X, ActorScale.Y);
+	UE_LOG(LogTemp, Warning, TEXT("[TRACK] %s missing RoadMesh, using fallback half width = %.1f"),
+		*GetName(), TrackHalfWidthFallback);
 
-	// On suppose que la largeur utile de la route correspond à l'axe X du mesh.
-	return MeshBounds.BoxExtent.X * RoadWidthScale * ScaleXY;
+	return TrackHalfWidthFallback;
 }
 
 float ATrackSplineActor::GetDistanceFromTrackCenter2D(const FVector& WorldLocation) const

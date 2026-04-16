@@ -79,10 +79,10 @@ public:
 	UInputAction* ItemAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float MaxSpeed = 1620.0f;
+	float MaxSpeed = 1800.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float AccelerationRate = 712.5f;
+	float AccelerationRate = 735.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float BrakingDeceleration = 800.0f;
@@ -362,7 +362,7 @@ protected:
 	float DriftAngleInterpSpeed = 10.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
-	float DriftTurnRateMultiplier = 1.3f;
+	float DriftTurnRateMultiplier = 2.5f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Drift")
 	float DriftBaseAutoSteer = 0.5f;
@@ -433,13 +433,13 @@ protected:
 	float LargeBoostCharge = 40.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
-	float SmallBoostBonusSpeed = 370.f;
+	float SmallBoostBonusSpeed = 300.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
-	float MediumBoostBonusSpeed = 575.f;
+	float MediumBoostBonusSpeed = 600.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
-	float LargeBoostBonusSpeed = 780.f;
+	float LargeBoostBonusSpeed = 900.f; 
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
 	float SmallBoostDuration = 0.75f;
@@ -476,19 +476,19 @@ protected:
 	float OffTrackDetectionMargin = 635.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
-	float OffTrackPenaltyDelay = 0.35f;
+	float OffTrackPenaltyDelay = 0.30f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
 	float OffTrackMaxSpeedMultiplier = 0.38f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
-	float OffTrackAccelerationMultiplier = 0.22f;
+	float OffTrackAccelerationMultiplier = 0.20f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
-	float OffTrackExtraDeceleration = 350.f;
+	float OffTrackExtraDeceleration = 650.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
-	float OffTrackTeleportDelay = 3.25f;
+	float OffTrackTeleportDelay = 2.5f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|OffTrack")
 	float RecoveryHeightOffset = 15.f;

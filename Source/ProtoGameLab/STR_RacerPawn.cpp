@@ -178,11 +178,33 @@ void ASTR_RacerPawn::BeginPlay()
 	TArray<AActor*> FoundTracks;
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ATrackSplineActor::StaticClass(), FoundTracks);
 
+	CachedTracks.Reset();
+
+	const FName MainRaceTrackTag(TEXT("MainRaceTrack"));
+
 	for (AActor* Actor : FoundTracks)
 	{
 		if (ATrackSplineActor* Track = Cast<ATrackSplineActor>(Actor))
 		{
-			CachedTracks.Add(Track);
+			if (Track->ActorHasTag(MainRaceTrackTag))
+			{
+				CachedTracks.Add(Track);
+				UE_LOG(LogTemp, Warning, TEXT("[TRACK] %s cached tagged track: %s"), *GetName(), *GetNameSafe(Track));
+			}
+		}
+	}
+
+	// fallback de secours si aucun tag trouvé
+	if (CachedTracks.Num() == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[TRACK] %s found no MainRaceTrack tag, falling back to all tracks"), *GetName());
+
+		for (AActor* Actor : FoundTracks)
+		{
+			if (ATrackSplineActor* Track = Cast<ATrackSplineActor>(Actor))
+			{
+				CachedTracks.Add(Track);
+			}
 		}
 	}
 
@@ -1320,6 +1342,13 @@ void ASTR_RacerPawn::UpdateWrongWayState(float DeltaTime)
 	const FVector TrackDirection = ActiveTrack->GetTrackForwardDirectionAtWorldLocation(GetActorLocation());
 
 	const float Dot = FVector::DotProduct(TravelDirection, TrackDirection);
+
+	UE_LOG(LogTemp, Warning, TEXT("[WRONGWAY] %s Track=%s OffTrack=%d Dot=%.2f Speed=%.2f"),
+		*GetName(),
+		*GetNameSafe(ActiveTrack),
+		bIsOffTrack ? 1 : 0,
+		Dot,
+		CurrentSpeed);
 
 	// Dot proche de 1  -> bon sens
 	// Dot proche de -1 -> contre-sens

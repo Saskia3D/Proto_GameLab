@@ -92,6 +92,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Track|Query")
 
 	FVector GetTrackForwardDirectionAtWorldLocation(const FVector& WorldLocation) const;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|Query")
+	float TrackHalfWidthFallback = 650.f;
+
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|FinishLine")
 	TSubclassOf<AFinishLine> FinishLineClass;
 
