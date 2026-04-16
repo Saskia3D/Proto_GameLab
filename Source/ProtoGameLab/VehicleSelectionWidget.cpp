@@ -557,18 +557,22 @@ void UVehicleSelectionWidget::BuildRuntimeWidget()
 		TitleSlot->SetPadding(TitlePadding);
 	}
 
-	UTextBlock* Subtitle = VehicleSelectionWidgetPrivate::CreateTextBlock(
-		WidgetTree,
-		TEXT("VehicleSelectionSubtitle"),
-		SubtitleText,
-		MakeThemeFont(18),
-		VehicleSelectionWidgetPrivate::MutedTextColor,
-		ETextJustify::Center
-	);
-	if (UVerticalBoxSlot* SubtitleSlot = RootBox->AddChildToVerticalBox(Subtitle))
+	if (!SubtitleText.IsEmptyOrWhitespace())
 	{
-		SubtitleSlot->SetHorizontalAlignment(HAlign_Center);
-		SubtitleSlot->SetPadding(SubtitlePadding);
+		UTextBlock* Subtitle = VehicleSelectionWidgetPrivate::CreateTextBlock(
+			WidgetTree,
+			TEXT("VehicleSelectionSubtitle"),
+			SubtitleText,
+			MakeThemeFont(18),
+			VehicleSelectionWidgetPrivate::MutedTextColor,
+			ETextJustify::Center
+		);
+
+		if (UVerticalBoxSlot* SubtitleSlot = RootBox->AddChildToVerticalBox(Subtitle))
+		{
+			SubtitleSlot->SetHorizontalAlignment(HAlign_Center);
+			SubtitleSlot->SetPadding(SubtitlePadding);
+		}
 	}
 
 	UHorizontalBox* PlayersRow = WidgetTree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass(), TEXT("VehicleSelectionPlayersRow"));
