@@ -61,7 +61,7 @@ void AProjectileActor::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
     UPrimitiveComponent* OtherComp, FVector NormalImpulse,
     const FHitResult& Hit)
 {
-    // IGNORE LE PROPRIETAIRE
+    // Ignore le propriétaire
     if (OtherActor == GetOwner() || OtherActor == OwnerPawn)
     {
         UE_LOG(LogTemp, Warning, TEXT("[PROJECTILE] Ignored owner hit"));
@@ -74,16 +74,23 @@ void AProjectileActor::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
     {
         UE_LOG(LogTemp, Warning, TEXT("[PROJECTILE] HIT PLAYER: %s"), *GetNameSafe(HitPlayer));
 
-        HitPlayer->MaxSpeed *= SlowMultiplier;
+        TWeakObjectPtr<ASTR_RacerPawn> WeakHitPlayer = HitPlayer;
+
+        HitPlayer->ApplyProjectileSlow(SlowMultiplier);
 
         FTimerHandle Timer;
-        GetWorld()->GetTimerManager().SetTimer(Timer, [HitPlayer, this]()
+        GetWorld()->GetTimerManager().SetTimer(
+            Timer,
+            [WeakHitPlayer]()
             {
-                if (HitPlayer)
+                if (ASTR_RacerPawn* Player = WeakHitPlayer.Get())
                 {
-                    HitPlayer->MaxSpeed /= SlowMultiplier;
+                    Player->ClearProjectileSlow();
                 }
-            }, SlowDuration, false);
+            },
+            SlowDuration,
+            false
+        );
     }
 
     Destroy();
