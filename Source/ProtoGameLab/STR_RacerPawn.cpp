@@ -175,6 +175,8 @@ void ASTR_RacerPawn::BeginPlay()
 {
 	Super::BeginPlay();
 
+	LastFrameLocation = GetActorLocation();
+
 	TArray<AActor*> FoundTracks;
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ATrackSplineActor::StaticClass(), FoundTracks);
 
@@ -669,6 +671,8 @@ void ASTR_RacerPawn::Tick(float DeltaTime)
 	{
 		BoxComp->ComponentVelocity = FVector(MoveVelocity.X, MoveVelocity.Y, 0.f);
 	}
+
+	UpdateAntiStuck(DeltaTime, Hit);
 
 	UpdateSafeRecoveryPoint();
 
@@ -1414,6 +1418,10 @@ void ASTR_RacerPawn::SetMovementLocked(bool bLocked)
 		// Divers
 		HitStunTimer = 0.f;
 
+		ResetAntiStuckState();
+		LastFrameLocation = GetActorLocation();
+		UnstuckCooldownTimer = 0.f;
+
 		if (BoxComp)
 		{
 			BoxComp->ComponentVelocity = FVector::ZeroVector;
@@ -1758,4 +1766,141 @@ void ASTR_RacerPawn::ClearProjectileSlow()
 
 	UE_LOG(LogTemp, Warning, TEXT("[PROJECTILE SLOW] Cleared on %s"),
 		*GetName());
+}
+
+bool ASTR_RacerPawn::IsTryingToMoveForAntiStuck() const
+{
+	return !bMovementLocked &&
+		(
+			FMath::Abs(CurrentSpeed) >= StuckMinSpeed ||
+			FMath::Abs(TargetSteeringInput) >= 0.2f ||
+			bAutoDriveEnabled
+			);
+}
+
+bool ASTR_RacerPawn::FindOverlappingRacerPawn(ASTR_RacerPawn*& OutOtherPawn) const
+{
+	OutOtherPawn = nullptr;
+
+	if (!BoxComp)
+	{
+		return false;
+	}
+
+	TArray<AActor*> OverlappingActors;
+	BoxComp->GetOverlappingActors(OverlappingActors, ASTR_RacerPawn::StaticClass());
+
+	for (AActor* Actor : OverlappingActors)
+	{
+		ASTR_RacerPawn* OtherPawn = Cast<ASTR_RacerPawn>(Actor);
+		if (OtherPawn && OtherPawn != this)
+		{
+			OutOtherPawn = OtherPawn;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void ASTR_RacerPawn::TrySoftUnstuck(ASTR_RacerPawn* OtherPawn)
+{
+	FVector PushDir = FVector::ZeroVector;
+
+	if (OtherPawn)
+	{
+		PushDir = (GetActorLocation() - OtherPawn->GetActorLocation()).GetSafeNormal2D();
+	}
+
+	if (PushDir.IsNearlyZero())
+	{
+		if (ATrackSplineActor* ActiveTrack = ResolveTrackSplineActor())
+		{
+			const FVector TrackCenter = ActiveTrack->GetClosestWorldLocationOnTrack(GetActorLocation());
+			PushDir = (GetActorLocation() - TrackCenter).GetSafeNormal2D();
+		}
+	}
+
+	if (PushDir.IsNearlyZero())
+	{
+		PushDir = GetActorRightVector().GetSafeNormal2D();
+	}
+
+	const FVector NewLocation = GetActorLocation() + PushDir * SoftUnstuckDistance;
+
+	SetActorLocation(
+		NewLocation,
+		false,
+		nullptr,
+		ETeleportType::TeleportPhysics
+	);
+
+	MoveVelocity = FVector::ZeroVector;
+	CurrentSpeed = 0.f;
+	bIsDrifting = false;
+	DriftDirection = 0;
+	DriftChargeDirection = 0;
+	DriftCharge = 0.f;
+	DriftHeldTime = 0.f;
+	CurrentDriftAngle = 0.f;
+	ActiveBoostTimer = 0.f;
+	ActiveBoostBonusSpeed = 0.f;
+
+	EnforceTrackHeight(true);
+}
+
+void ASTR_RacerPawn::ResetAntiStuckState()
+{
+	StuckTime = 0.f;
+	ConsecutiveUnstuckAttempts = 0;
+}
+
+void ASTR_RacerPawn::UpdateAntiStuck(float DeltaTime, const FHitResult& MoveHit)
+{
+	UnstuckCooldownTimer = FMath::Max(0.f, UnstuckCooldownTimer - DeltaTime);
+
+	const FVector CurrentLocation = GetActorLocation();
+	const float ActualMove2D = FVector::Dist2D(CurrentLocation, LastFrameLocation);
+
+	ASTR_RacerPawn* OtherPawn = nullptr;
+	const bool bOverlappingOtherPawn = FindOverlappingRacerPawn(OtherPawn);
+	const bool bBlockedByWorld = MoveHit.bBlockingHit || MoveHit.bStartPenetrating;
+	const bool bTryingToMove = IsTryingToMoveForAntiStuck();
+	const bool bNotActuallyMoving = ActualMove2D <= StuckMovementThreshold;
+
+	if (bTryingToMove && bNotActuallyMoving && (bBlockedByWorld || bOverlappingOtherPawn))
+	{
+		StuckTime += DeltaTime;
+	}
+	else
+	{
+		ResetAntiStuckState();
+		LastFrameLocation = CurrentLocation;
+		return;
+	}
+
+	if (UnstuckCooldownTimer > 0.f || StuckTime < StuckDetectionDelay)
+	{
+		LastFrameLocation = CurrentLocation;
+		return;
+	}
+
+	if (ConsecutiveUnstuckAttempts < MaxSoftUnstuckAttempts)
+	{
+		TrySoftUnstuck(OtherPawn);
+		ConsecutiveUnstuckAttempts++;
+
+		UE_LOG(LogTemp, Warning, TEXT("[ANTI-STUCK] Soft unstuck on %s (attempt %d)"),
+			*GetName(), ConsecutiveUnstuckAttempts);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[ANTI-STUCK] Hard reset on %s"), *GetName());
+		TeleportBackToTrack();
+		ConsecutiveUnstuckAttempts = 0;
+	}
+
+	StuckTime = 0.f;
+	UnstuckCooldownTimer = UnstuckCooldown;
+	LastFrameLocation = GetActorLocation();
 }

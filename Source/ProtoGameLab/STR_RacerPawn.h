@@ -136,6 +136,34 @@ public:
 
 	float LastHitTime = -100.f;
 
+	// Anti-stuck
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Collision|AntiStuck")
+	float StuckTime = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision|AntiStuck")
+	float StuckDetectionDelay = 0.45f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision|AntiStuck")
+	float StuckMovementThreshold = 6.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision|AntiStuck")
+	float StuckMinSpeed = 250.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision|AntiStuck")
+	float SoftUnstuckDistance = 90.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision|AntiStuck")
+	float UnstuckCooldown = 0.75f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision|AntiStuck")
+	int32 MaxSoftUnstuckAttempts = 2;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Collision|AntiStuck")
+	int32 ConsecutiveUnstuckAttempts = 0;
+
+	FVector LastFrameLocation = FVector::ZeroVector;
+	float UnstuckCooldownTimer = 0.f;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement|DriftExit")
 	bool bPostDriftRecoveryActive = false;
 
@@ -439,7 +467,7 @@ protected:
 	float MediumBoostBonusSpeed = 600.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
-	float LargeBoostBonusSpeed = 900.f; 
+	float LargeBoostBonusSpeed = 900.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|DriftBoost")
 	float SmallBoostDuration = 0.75f;
@@ -581,5 +609,11 @@ protected:
 
 	void InitializeHeightLock();
 	void EnforceTrackHeight(bool bTeleport = false);
+
+	void UpdateAntiStuck(float DeltaTime, const FHitResult& MoveHit);
+	bool IsTryingToMoveForAntiStuck() const;
+	bool FindOverlappingRacerPawn(ASTR_RacerPawn*& OutOtherPawn) const;
+	void TrySoftUnstuck(ASTR_RacerPawn* OtherPawn);
+	void ResetAntiStuckState();
 };
 
