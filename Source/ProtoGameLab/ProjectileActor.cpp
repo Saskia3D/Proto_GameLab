@@ -22,14 +22,9 @@ AProjectileActor::AProjectileActor()
 
 void AProjectileActor::BeginPlay()
 {
-	Super::BeginPlay();
+    Super::BeginPlay();
 
-	OwnerPawn = Cast<APawn>(GetOwner());
-
-	if (OwnerPawn)
-	{
-		CollisionComp->IgnoreActorWhenMoving(OwnerPawn, true);
-	}
+    IgnoreOwnerPawn(Cast<APawn>(GetOwner()));
 }
 
 void AProjectileActor::InitDirection(FVector Direction)
@@ -61,7 +56,12 @@ void AProjectileActor::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
     UPrimitiveComponent* OtherComp, FVector NormalImpulse,
     const FHitResult& Hit)
 {
-    // Ignore le propriétaire
+    if (!OtherActor || OtherActor == this)
+    {
+        return;
+    }
+
+    // Ignore le lanceur
     if (OtherActor == GetOwner() || OtherActor == OwnerPawn)
     {
         UE_LOG(LogTemp, Warning, TEXT("[PROJECTILE] Ignored owner hit"));
@@ -103,14 +103,22 @@ void AProjectileActor::InitHoming(APawn* InTarget)
 
 void AProjectileActor::IgnoreOwnerPawn(APawn* InOwner)
 {
-    if (!InOwner) return;
+    if (!InOwner || !CollisionComp)
+    {
+        return;
+    }
 
     OwnerPawn = InOwner;
-
     SetOwner(InOwner);
+    SetInstigator(InOwner);
 
-    if (CollisionComp)
+    CollisionComp->IgnoreActorWhenMoving(InOwner, true);
+
+    if (ASTR_RacerPawn* OwnerRacer = Cast<ASTR_RacerPawn>(InOwner))
     {
-        CollisionComp->IgnoreActorWhenMoving(InOwner, true);
+        if (OwnerRacer->BoxComp)
+        {
+            OwnerRacer->BoxComp->IgnoreActorWhenMoving(this, true);
+        }
     }
 }

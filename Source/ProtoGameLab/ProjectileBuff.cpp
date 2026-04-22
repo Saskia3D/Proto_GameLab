@@ -41,7 +41,7 @@ void UProjectileBuff::FireProjectile()
     // Paramètres importants
     FActorSpawnParameters Params;
     Params.Owner = CachedPlayer;
-    Params.Instigator = CachedPlayer->GetInstigator();
+    Params.Instigator = CachedPlayer;
 
     AProjectileActor* Projectile = World->SpawnActor<AProjectileActor>(
         ProjectileClass,
