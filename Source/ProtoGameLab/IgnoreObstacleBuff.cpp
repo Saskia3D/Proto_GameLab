@@ -78,24 +78,92 @@ void UIgnoreObstacleBuff::Activate(APawn* Player)
 
 void UIgnoreObstacleBuff::OnBuffExpired()
 {
-	if (ASTR_RacerPawn* Racer = CachedRacer.Get())
-	{
-		Racer->SetIgnoreObstacleHits(false);
+    if (ASTR_RacerPawn* Racer = CachedRacer.Get())
+    {
+        Racer->SetIgnoreObstacleHits(false);
 
-		for (const TWeakObjectPtr<AActor>& IgnoredActor : IgnoredActors)
-		{
-			if (AActor* Actor = IgnoredActor.Get())
-			{
-				Racer->BoxComp->IgnoreActorWhenMoving(Actor, false);
-			}
-		}
+        // --- NOUVEAU : dépénétration avant de restaurer les collisions ---
+        if (Racer->BoxComp && bHasSavedCollisionState)
+        {
+            UWorld* World = Racer->GetWorld();
+            if (World)
+            {
+                FVector SafeLocation = Racer->GetActorLocation();
+                FCollisionShape Shape = Racer->BoxComp->GetCollisionShape();
+                FQuat Rotation = Racer->BoxComp->GetComponentQuat();
 
-		if (Racer->BoxComp && bHasSavedCollisionState)
-		{
-			Racer->BoxComp->SetCollisionResponseToChannels(PreviousResponses);
-			Racer->BoxComp->SetNotifyRigidBodyCollision(bPreviousNotifyRigidBodyCollision);
-		}
-	}
+                // On cherche une position libre autour du racer (plusieurs directions)
+                const TArray<FVector> EjectDirections = {
+                    Racer->GetActorForwardVector(),
+                    -Racer->GetActorForwardVector(),
+                    Racer->GetActorRightVector(),
+                    -Racer->GetActorRightVector()
+                };
+
+                FCollisionQueryParams QueryParams;
+                QueryParams.AddIgnoredActor(Racer);
+
+                bool bFoundSafeSpot = false;
+                const float EjectStep = 50.f;
+                const int32 MaxSteps = 10;
+
+                for (const FVector& Dir : EjectDirections)
+                {
+                    for (int32 Step = 1; Step <= MaxSteps; ++Step)
+                    {
+                        FVector TestLocation = Racer->GetActorLocation() + Dir * EjectStep * Step;
+
+                        // On vérifie qu'il n'y a pas de chevauchement à cette position
+                        bool bOverlapping = World->OverlapBlockingTestByChannel(
+                            TestLocation,
+                            Rotation,
+                            ECC_Pawn,
+                            Shape,
+                            QueryParams
+                        );
+
+                        if (!bOverlapping)
+                        {
+                            SafeLocation = TestLocation;
+                            bFoundSafeSpot = true;
+                            break;
+                        }
+                    }
+                    if (bFoundSafeSpot) break;
+                }
+
+                if (bFoundSafeSpot)
+                {
+                    Racer->SetActorLocation(SafeLocation, false, nullptr, ETeleportType::TeleportPhysics);
+                    UE_LOG(LogTemp, Warning, TEXT("[BUFF] IgnoreObstacle : racer éjecté vers position sûre."));
+                }
+                else
+                {
+                    UE_LOG(LogTemp, Warning, TEXT("[BUFF] IgnoreObstacle : aucune position sûre trouvée, téléport de secours."));
+                    // Fallback : utilise le dernier point sûr du racer s'il en a un
+                    if (Racer->bHasSafeRecoveryPoint)
+                    {
+                        Racer->SetActorLocation(Racer->LastSafeLocation, false, nullptr, ETeleportType::TeleportPhysics);
+                    }
+                }
+            }
+        }
+        // --- FIN dépénétration ---
+
+        for (const TWeakObjectPtr<AActor>& IgnoredActor : IgnoredActors)
+        {
+            if (AActor* Actor = IgnoredActor.Get())
+            {
+                Racer->BoxComp->IgnoreActorWhenMoving(Actor, false);
+            }
+        }
+
+        if (Racer->BoxComp && bHasSavedCollisionState)
+        {
+            Racer->BoxComp->SetCollisionResponseToChannels(PreviousResponses);
+            Racer->BoxComp->SetNotifyRigidBodyCollision(bPreviousNotifyRigidBodyCollision);
+        }
+    }
 
 	OnIgnoreObstacleExpired();
 

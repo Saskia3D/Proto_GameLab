@@ -336,6 +336,22 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Movement|Debuff")
 	void ClearProjectileSlow();
 
+	// Retour sur la piste
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|Recovery")
+	bool bHasSafeRecoveryPoint = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|Recovery")
+	FVector LastSafeLocation = FVector::ZeroVector;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|Recovery")
+	FVector LastSafeForward = FVector::ForwardVector;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|Recovery")
+	float LastSafeSpeed = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|Recovery")
+	float SafeRecoveryTrackRatio = 0.72f;
+
 protected:
 	float CurrentSpeed = 0.f;
 	float TargetSteeringInput = 0.f;
@@ -541,21 +557,6 @@ protected:
 
 	UPROPERTY()
 	ATrackSplineActor* CurrentMinimapTrack = nullptr;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|Recovery")
-	bool bHasSafeRecoveryPoint = false;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|Recovery")
-	FVector LastSafeLocation = FVector::ZeroVector;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|Recovery")
-	FVector LastSafeForward = FVector::ForwardVector;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Track|Recovery")
-	float LastSafeSpeed = 0.f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|Recovery")
-	float SafeRecoveryTrackRatio = 0.72f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Track|Height")
 	bool bLockHeightToTrack = true;
